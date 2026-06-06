@@ -1,0 +1,5 @@
+match_id,match_label,actual_score_a,actual_score_b
+demo1,Demo Team A vs Demo Team B,1.0,1.0
+demo2,Alpha vs Beta,2.0,1.0
+demo3,Gamma vs Delta,1.0,0.0
+demo4,Gamma2 vs Delta2,0.0,3.0
