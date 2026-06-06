@@ -142,7 +142,7 @@ def _round_label(round_number):
 
 
 def _short_group_name(group):
-    return group.replace("Group ", "Group ")
+    return group.replace("Group ", "Group  ")
 
 
 def _parse_score(text, team_name):
