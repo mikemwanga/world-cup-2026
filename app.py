@@ -140,7 +140,6 @@ def _round_label(round_number):
         return f"Round {int(round_number)}"
     return str(round_number)
 
-
 def _short_group_name(group):
     return group.replace("Group ", "Group  ")
 
@@ -483,7 +482,7 @@ upcoming = upcoming.sort_values(by=["round_number", "group", "match_date"])
 finished = matches[matches["is_finished"]].sort_values(by="match_date", ascending=False)
 
 st.subheader("Upcoming matches")
-st.badge("Match times have been converted to Swiss local time",color="blue")
+st.badge("Match times have been converted to Central European local time",color="blue")
 
 if upcoming.empty:
     st.info("No upcoming matches are available for prediction at this time.")
