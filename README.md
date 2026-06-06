@@ -1,4 +1,4 @@
-# Streamlit Football Prediction App
+# Football Prediction App
 
 A simple one-page Streamlit app for lab football match prediction.
 
