@@ -13,6 +13,9 @@ from process_data import (
     save_scores,
     build_leaderboard,
     compute_score,
+    filter_actual_predictions,
+    display_team_name,
+    display_match_label,
 )
 from scoring_rules import SCORING_DESCRIPTION
 
@@ -20,20 +23,91 @@ ensure_data_files()
 
 page_icon = "icons/coronavirus.png"
 ballicon ="icons/kicking-ball.png"
-st.set_page_config(page_title="Football Predictions", page_icon=page_icon, layout="centered")
+st.set_page_config(page_title="Football Predictions", page_icon=page_icon, layout="wide")
 
 st.markdown(
     """
     <style>
         .stApp .main .block-container {
-            max-width: 900px;
+            max-width: 1400px;
             padding-left: 1rem;
             padding-right: 1rem;
         }
-        @media (max-width: 768px) {
+        .group-header {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #1f4e79;
+            margin-bottom: 0.35rem;
+            text-align: center;
+        }
+        .match-card-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.15rem;
+        }
+        .match-id-badge {
+            display: inline-block;
+            background: #1f4e79;
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.1rem 0.45rem;
+            border-radius: 4px;
+            margin-right: 0.35rem;
+            vertical-align: middle;
+        }
+        div[data-testid="stForm"] button[kind="primaryFormSubmit"] {
+            background-color: #1565c0;
+            border-color: #1565c0;
+            color: #ffffff;
+        }
+        div[data-testid="stForm"] button[kind="primaryFormSubmit"]:hover {
+            background-color: #0d47a1;
+            border-color: #0d47a1;
+            color: #ffffff;
+        }
+        .round-section {
+            margin-top: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+        div[data-testid="stExpander"] details summary p {
+            font-weight: 600;
+        }
+        /* Responsive group rows: wrap instead of squeezing */
+        section[data-testid="stMain"] div[data-testid="element-container"]:has(.group-grid-marker)
+            + div[data-testid="element-container"] div[data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+            gap: 0.75rem 0.5rem !important;
+            align-items: stretch !important;
+        }
+        section[data-testid="stMain"] div[data-testid="element-container"]:has(.group-grid-marker)
+            + div[data-testid="element-container"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            min-width: 260px !important;
+            flex: 1 1 260px !important;
+            width: auto !important;
+        }
+        @media (max-width: 1100px) {
+            section[data-testid="stMain"] div[data-testid="element-container"]:has(.group-grid-marker)
+                + div[data-testid="element-container"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+                flex: 1 1 calc(50% - 0.5rem) !important;
+                min-width: min(100%, 260px) !important;
+            }
+        }
+        @media (max-width: 620px) {
             .stApp .main .block-container {
-                padding-left: 0.75rem;
-                padding-right: 0.75rem;
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+            .group-header {
+                font-size: 0.85rem;
+            }
+            .match-card-title {
+                font-size: 0.8rem;
+            }
+            section[data-testid="stMain"] div[data-testid="element-container"]:has(.group-grid-marker)
+                + div[data-testid="element-container"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+                flex: 1 1 100% !important;
+                min-width: 100% !important;
             }
         }
     </style>
@@ -41,14 +115,189 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-balcol,title_col,icon_col = st.columns([2,8,2])
+GROUP_ROWS = [
+    ["Group A", "Group B", "Group C", "Group D"],
+    ["Group E", "Group F", "Group G", "Group H"],
+    ["Group I", "Group J", "Group K", "Group L"],
+]
+def _round_label(round_number):
+    if str(round_number).isdigit():
+        return f"Round {int(round_number)}"
+    return str(round_number)
+
+
+def _short_group_name(group):
+    return group.replace("Group ", "Grp ")
+
+
+def _parse_score(text, team_name):
+    cleaned = str(text).strip()
+    if cleaned == "":
+        return 0
+    if not cleaned.isdigit():
+        raise ValueError(f"Enter a whole number for {team_name}.")
+    value = int(cleaned)
+    if value < 0 or value > 20:
+        raise ValueError(f"{team_name} score must be between 0 and 20.")
+    return value
+
+
+def render_match_card(
+    match,
+    participant_id,
+    username,
+    predictions,
+    now,
+    *,
+    key_prefix="",
+    save_fn=add_or_update_prediction,
+):
+    match_id = int(match["match_id"])
+    match_label = match["match_label"]
+    match_time = match["match_date"].strftime("%d/%m %H:%M")
+    deadline_time = match["prediction_deadline"].strftime("%d/%m %H:%M")
+    user_preds = predictions[
+        (predictions["participant_id"] == participant_id)
+        & (predictions["match_id"] == match_id)
+    ]
+    default_a = int(user_preds["predicted_score_a"].iloc[0]) if not user_preds.empty else 0
+    default_b = int(user_preds["predicted_score_b"].iloc[0]) if not user_preds.empty else 0
+    deadline_passed = match["prediction_deadline"] < now
+    team_a = display_team_name(match["team_a"])
+    team_b = display_team_name(match["team_b"])
+
+    with st.form(key=f"form_{key_prefix}{match_id}"):
+        st.markdown(
+            (
+                f'<p class="match-card-title">'
+                f'<span class="match-id-badge">ID {match_id}</span>'
+                f'{team_a} vs {team_b}</p>'
+            ),
+            unsafe_allow_html=True,
+        )
+        st.caption(f"Kick-off: {match_time} · Deadline: {deadline_time}")
+        st.markdown(f"**Your pick:** {default_a} – {default_b}")
+        if deadline_passed:
+            st.warning("Deadline passed", icon="⏰")
+
+        left, right = st.columns(2)
+        score_a_text = left.text_input(
+            team_a,
+            value=str(default_a),
+            key=f"score_a_{key_prefix}{match_id}",
+        )
+        score_b_text = right.text_input(
+            team_b,
+            value=str(default_b),
+            key=f"score_b_{key_prefix}{match_id}",
+        )
+
+        submitted = st.form_submit_button("Save", type="primary", use_container_width=True)
+        if submitted:
+            if deadline_passed:
+                st.error("Prediction deadline has passed.")
+            else:
+                try:
+                    score_a = _parse_score(score_a_text, team_a)
+                    score_b = _parse_score(score_b_text, team_b)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    save_fn(
+                        participant_id,
+                        username,
+                        match_id,
+                        score_a,
+                        score_b,
+                        match_label,
+                    )
+                    st.success("Saved.")
+                    st.rerun()
+
+
+def render_group_card(group, group_matches, participant_id, username, predictions, now, *, key_prefix="", save_fn=add_or_update_prediction):
+    with st.container(border=True):
+        st.markdown(
+            f'<p class="group-header">{_short_group_name(group)}</p>',
+            unsafe_allow_html=True,
+        )
+        if group_matches.empty:
+            st.caption("No matches")
+        else:
+            for match_idx, (_, match) in enumerate(group_matches.iterrows()):
+                if match_idx > 0:
+                    st.divider()
+                render_match_card(
+                    match,
+                    participant_id,
+                    username,
+                    predictions,
+                    now,
+                    key_prefix=key_prefix,
+                    save_fn=save_fn,
+                )
+
+
+def render_round_grid(
+    round_matches,
+    participant_id,
+    username,
+    predictions,
+    now,
+    *,
+    group_rows=GROUP_ROWS,
+    key_prefix="",
+    save_fn=add_or_update_prediction,
+):
+    for group_row in group_rows:
+        st.markdown('<div class="group-grid-marker"></div>', unsafe_allow_html=True)
+        cols = st.columns(len(group_row))
+        for col_idx, group in enumerate(group_row):
+            group_matches = round_matches[round_matches["group"] == group].sort_values(
+                "match_date"
+            )
+            with cols[col_idx]:
+                render_group_card(
+                    group,
+                    group_matches,
+                    participant_id,
+                    username,
+                    predictions,
+                    now,
+                    key_prefix=key_prefix,
+                    save_fn=save_fn,
+                )
+
+
+def display_leaderboard(leaderboard, is_admin):
+    if is_admin:
+        display_cols = [
+            "Rank",
+            "Participant ID",
+            "Name",
+            "Matches Predicted",
+            "Correct Predictions",
+            "Total Points",
+        ]
+    else:
+        display_cols = [
+            "Rank",
+            "Name",
+            "Matches Predicted",
+            "Correct Predictions",
+            "Total Points",
+        ]
+    st.dataframe(leaderboard[display_cols], use_container_width=True, hide_index=True)
+
+
+balcol,title_col,icon_col = st.columns([1,10,1])
 title_col.markdown("# Football World Cup 2026")
-icon_col.image(page_icon, width='stretch')
-balcol.image(ballicon, width='stretch')
+icon_col.image(page_icon, width='content')
+balcol.image(ballicon, width='content')
 
 matches = load_matches()
 users = load_users()
-predictions = load_predictions()
+predictions = filter_actual_predictions(load_predictions(), matches)
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -199,6 +448,7 @@ if is_admin:
             lambda row: f"{int(row['actual_score_a'])}-{int(row['actual_score_b'])}" if pd.notna(row['actual_score_a']) and pd.notna(row['actual_score_b']) else "Pending",
             axis=1,
         )
+        admin_preds["match_label"] = admin_preds["match_label"].map(display_match_label)
         st.subheader("All user predictions")
         st.dataframe(
             admin_preds[
@@ -219,102 +469,23 @@ st.subheader("Upcoming matches")
 if upcoming.empty:
     st.info("No upcoming matches are available for prediction at this time.")
 else:
-    # Build round options keeping named rounds (e.g. 'Round of 32') and sort by earliest match date per round
     round_order = (
         upcoming.groupby("round_number")["match_date"].min().sort_values().index.tolist()
     )
-    round_options = [str(r) for r in round_order]
-    def _round_label(r):
-        try:
-            # show numeric rounds as 'Round N'
-            if str(r).isdigit():
-                return f"Round {int(r)}"
-        except Exception:
-            pass
-        return str(r)
 
-    selected_round = st.selectbox(
-        "Select round",
-        round_options,
-        format_func=_round_label,
-    )
-    group_options = upcoming[upcoming["round_number"].astype(str) == str(selected_round)]["group"].sort_values().unique().tolist()
-
-    selected_group = st.selectbox("Select group", group_options)
-
-    selected_matches = upcoming[
-        (upcoming["round_number"].astype(str) == str(selected_round))
-        & (upcoming["group"] == selected_group)
-    ]
-
-    st.markdown(f"**Round {selected_round} — {selected_group}**")
-    if selected_matches.empty:
-        st.info("No upcoming matches in this group.")
-    else:
-        for _, match in selected_matches.iterrows():
-            match_id = int(match["match_id"])
-            match_label = match["match_label"]
-            match_time = match["match_date"].strftime("%d/%m/%Y %H:%M")
-            deadline_time = match["prediction_deadline"].strftime("%d/%m/%Y %H:%M")
-            with st.expander(f"{match_label} — {match_time}", expanded=True):
-                cols = st.columns([2, 2, 2, 1])
-                cols[0].markdown(
-                    f"**Match ID:** {match_id}  \n"
-                    f"**Match date:** {match_time}  \n"
-                    f"**Deadline:** {deadline_time}"
-                )
-                cols[1].markdown(
-                    f"**Teams:** {match['team_a']} vs {match['team_b']}  \n"
-                    f"**Group:** {match['group']}  \n"
-                    f"**Location:** {match.get('location', '') or 'TBD'}"
-                )
-                user_preds = predictions[
-                    (predictions["participant_id"] == participant_id)
-                    & (predictions["match_id"] == match_id)
-                ]
-                default_a = int(user_preds["predicted_score_a"].iloc[0]) if not user_preds.empty else 0
-                default_b = int(user_preds["predicted_score_b"].iloc[0]) if not user_preds.empty else 0
-                cols[2].markdown(
-                    f"**Your current prediction:** {default_a} - {default_b}"
-                )
-                if match["prediction_deadline"] < now:
-                    cols[3].warning("Deadline passed")
-                with st.form(key=f"form_{match_id}"):
-                    st.markdown("**Enter your prediction:**")
-                    left, right = st.columns(2)
-                    score_a = left.number_input(
-                        f"{match['team_a']} goals",
-                        min_value=0,
-                        max_value=20,
-                        value=default_a,
-                        key=f"score_a_{match_id}",
-                    )
-                    score_b = right.number_input(
-                        f"{match['team_b']} goals",
-                        min_value=0,
-                        max_value=20,
-                        value=default_b,
-                        key=f"score_b_{match_id}",
-                    )
-                    predicted_outcome = "A" if score_a > score_b else ("B" if score_b > score_a else "Draw")
-                    st.markdown(
-                        f"**Predicted outcome:** {match['team_a'] if predicted_outcome == 'A' else match['team_b'] if predicted_outcome == 'B' else 'Draw'}"
-                    )
-                    submit = st.form_submit_button("Save prediction")
-                    if submit:
-                        if match["prediction_deadline"] < now:
-                            st.error("Prediction deadline has passed.")
-                        else:
-                            add_or_update_prediction(
-                                participant_id,
-                                username,
-                                match_id,
-                                int(score_a),
-                                int(score_b),
-                                match_label,
-                            )
-                            st.success("Prediction saved.")
-                            st.rerun()
+    for round_idx, round_number in enumerate(round_order):
+        round_key = str(round_number)
+        round_matches = upcoming[upcoming["round_number"].astype(str) == round_key]
+        match_count = len(round_matches)
+        expander_label = f"{_round_label(round_number)} — {match_count} matches"
+        with st.expander(expander_label, expanded=(round_idx == 0)):
+            render_round_grid(
+                round_matches,
+                participant_id,
+                username,
+                predictions,
+                now,
+            )
 
 st.divider()
 
@@ -348,7 +519,7 @@ else:
         )
         rows.append(
             {
-                "Match": row["match_label"],
+                "Match": display_match_label(row["match_label"]),
                 "Day": row["Day"],
                 "Played at": row["match_date"],
                 "Actual score": f"{int(row['actual_score_a'])}-{int(row['actual_score_b'])}",
@@ -360,59 +531,46 @@ else:
     st.dataframe(finished_display, use_container_width=True, hide_index=True)
 st.divider()
 
-st.subheader("My previous predictions")
+st.subheader("My Predictions")
 user_preds = predictions[predictions["participant_id"] == participant_id]
-if user_preds.empty:
-    st.info("You have not saved any predictions yet.")
+history = []
+for _, row in user_preds.iterrows():
+    match_row = matches[matches["match_id"] == int(row["match_id"])]
+    if match_row.empty:
+        continue
+    match_row = match_row.iloc[0]
+    if not match_row["is_finished"]:
+        continue
+    points = compute_score(row, match_row)
+    actual_a = int(match_row["actual_score_a"])
+    actual_b = int(match_row["actual_score_b"])
+    predicted_a = int(row["predicted_score_a"])
+    predicted_b = int(row["predicted_score_b"])
+
+    actual_outcome = "A" if actual_a > actual_b else ("B" if actual_b > actual_a else "Draw")
+    predicted_outcome = "A" if predicted_a > predicted_b else ("B" if predicted_b > predicted_a else "Draw")
+
+    win_correct = actual_outcome in ["A", "B"] and predicted_outcome == actual_outcome
+    draw_correct = actual_outcome == "Draw" and predicted_outcome == "Draw"
+    goals_correct = (predicted_a == actual_a) and (predicted_b == actual_b)
+
+    history.append(
+        {
+            "Match": display_match_label(row["match_label"]),
+            "Result": f"{actual_a}-{actual_b}",
+            "Your prediction": f"{predicted_a}-{predicted_b}",
+            "Win": "✅" if win_correct else "❌",
+            "Draw": "✅" if draw_correct else "❌",
+            "Goals": "✅" if goals_correct else "❌",
+            "Points": points if points is not None else 0,
+        }
+    )
+
+if not history:
+    st.info("No completed match predictions yet. Results appear here once the competition begins and scores are recorded.")
 else:
-    history = []
-    for _, row in user_preds.iterrows():
-        match_row = matches[matches["match_id"] == int(row["match_id"])]
-        if match_row.empty:
-            continue
-        match_row = match_row.iloc[0]
-        points = compute_score(row, match_row)
-        
-        if match_row["is_finished"]:
-            actual_a = int(match_row["actual_score_a"])
-            actual_b = int(match_row["actual_score_b"])
-            predicted_a = int(row["predicted_score_a"])
-            predicted_b = int(row["predicted_score_b"])
-            
-            actual_outcome = "A" if actual_a > actual_b else ("B" if actual_b > actual_a else "Draw")
-            predicted_outcome = "A" if predicted_a > predicted_b else ("B" if predicted_b > predicted_a else "Draw")
-            
-            win_correct = actual_outcome in ["A", "B"] and predicted_outcome == actual_outcome
-            draw_correct = actual_outcome == "Draw" and predicted_outcome == "Draw"
-            goals_correct = (predicted_a == actual_a) and (predicted_b == actual_b)
-            
-            history.append(
-                {
-                    "Match": row["match_label"],
-                    "Result": f"{actual_a}-{actual_b}",
-                    "Your prediction": f"{predicted_a}-{predicted_b}",
-                    "Win": "✅" if win_correct else "❌",
-                    "Draw": "✅" if draw_correct else "❌",
-                    "Goals": "✅" if goals_correct else "❌",
-                    "Points": points if points is not None else 0,
-                }
-            )
-        else:
-            history.append(
-                {
-                    "Match": row["match_label"],
-                    "Result": "Pending",
-                    "Your prediction": f"{int(row["predicted_score_a"])}-{int(row["predicted_score_b"])}",
-                    "Win": "—",
-                    "Draw": "—",
-                    "Goals": "—",
-                    "Points": "Pending",
-                }
-            )
-    
     history_df = pd.DataFrame(history)
-    if not history_df.empty:
-        history_df = history_df[["Match", "Result", "Your prediction", "Win", "Draw", "Goals", "Points"]]
+    history_df = history_df[["Match", "Result", "Your prediction", "Win", "Draw", "Goals", "Points"]]
     st.dataframe(history_df, use_container_width=True, hide_index=True)
 
 st.divider()
@@ -420,9 +578,9 @@ st.divider()
 st.subheader("Leaderboard")
 leaderboard = build_leaderboard(predictions, matches)
 if leaderboard.empty:
-    st.info("No scored predictions yet.")
+    st.info("No predictions recorded yet.")
 else:
-    st.dataframe(leaderboard)
+    display_leaderboard(leaderboard, is_admin)
 
 st.markdown(
     "---\n## Scoring Rules\n" + SCORING_DESCRIPTION

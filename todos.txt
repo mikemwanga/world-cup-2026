@@ -61,5 +61,3 @@ Take note of the round number column. matches are played on rounds,
 In each round as a drop down generate the fixtures by groups,then have groups as drop down and for each match in every group, allow the users to predict the matches as already established in the test code. Take not that the name columns for this new file do not march the test file matches.csv. Adjust the matches.csv file naming to be similar to avoid conflicts.
 The date format is day/month/year and time is 24 hrs system.
 
-
-python -m scripts.convert_fifa_to_matches

@@ -1,9 +1,1 @@
 participant_id,username,match_id,match_label,predicted_score_a,predicted_score_b,predicted_outcome,saved_at
-P001,ewnewf,3,Spain vs England,1,2,B,2026-06-04 12:04:21
-P001,ewnewf,4,Portugal vs Netherlands,0,1,B,2026-06-04 12:04:32
-P001,ewnewf,5,Japan vs Canada,1,0,A,2026-06-04 12:04:37
-P002,fefer,3,Spain vs England,1,0,A,2026-06-04 12:12:26
-P002,fefer,4,Portugal vs Netherlands,1,1,Draw,2026-06-04 15:00:49
-P002,fefer,5,Japan vs Canada,3,1,A,2026-06-04 12:12:38
-P001,MJ,2,Alpha vs Beta,0,1,B,2026-06-04 13:44:48
-P001,MJ,1,Demo Team A vs Demo Team B,1,1,Draw,2026-06-04 13:44:53

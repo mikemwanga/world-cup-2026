@@ -21,6 +21,11 @@ PREDICTIONS_XLSX = DATA_DIR / "predictions.xlsx"
 ADMIN_USER_ID = "ADMIN01"
 ADMIN_USERNAME = "Admin"
 
+DISPLAY_TEAM_ALIASES = {
+    "Bosnia and Herzegovina": "Bosnia-Hzgv",
+    "Korea Republic": "Korea Re.",
+}
+
 DEFAULT_MATCHES = [
     {
         "team_a": "Brazil",
@@ -65,6 +70,20 @@ DEFAULT_MATCHES = [
 ]
 
 DEFAULT_USER_IDS = [f"P{i:03d}" for i in range(1, 11)]
+
+
+def display_team_name(name):
+    cleaned = str(name).strip()
+    return DISPLAY_TEAM_ALIASES.get(cleaned, cleaned)
+
+
+def display_match_label(label_or_team_a, team_b=None):
+    if team_b is not None:
+        return f"{display_team_name(label_or_team_a)} vs {display_team_name(team_b)}"
+    parts = str(label_or_team_a).split(" vs ", 1)
+    if len(parts) == 2:
+        return f"{display_team_name(parts[0])} vs {display_team_name(parts[1])}"
+    return display_team_name(label_or_team_a)
 
 
 def ensure_data_files():
@@ -130,6 +149,32 @@ def ensure_data_files():
         )
         empty.to_csv(PREDICTIONS_CSV, index=False)
         empty.to_excel(PREDICTIONS_XLSX, index=False)
+
+
+def _merge_scores_into_matches(df, scores):
+    if scores.empty:
+        return df
+    if "match_id" in scores.columns:
+        return df.merge(
+            scores[["match_id", "actual_score_a", "actual_score_b"]],
+            on="match_id",
+            how="left",
+            suffixes=("", "_score"),
+        ).assign(
+            actual_score_a=lambda d: d["actual_score_a_score"].combine_first(d["actual_score_a"]),
+            actual_score_b=lambda d: d["actual_score_b_score"].combine_first(d["actual_score_b"]),
+        ).drop(columns=["actual_score_a_score", "actual_score_b_score"])
+    scores = scores.copy()
+    scores["match_label"] = scores["match_label"].astype(str).str.strip()
+    return df.merge(
+        scores[["match_label", "actual_score_a", "actual_score_b"]],
+        on="match_label",
+        how="left",
+        suffixes=("", "_score"),
+    ).assign(
+        actual_score_a=lambda d: d["actual_score_a_score"].combine_first(d["actual_score_a"]),
+        actual_score_b=lambda d: d["actual_score_b_score"].combine_first(d["actual_score_b"]),
+    ).drop(columns=["actual_score_a_score", "actual_score_b_score"])
 
 
 def _normalize_matches_df(df):
@@ -224,14 +269,8 @@ def load_matches():
 
     if SCORES_FILE.exists():
         scores = load_scores()
-        if "match_id" in scores.columns:
-            df = df.merge(scores[["match_id", "actual_score_a", "actual_score_b"]], on="match_id", how="left", suffixes=("", "_score"))
-        else:
-            scores["match_label"] = scores["match_label"].astype(str).str.strip()
-            df = df.merge(scores[["match_label", "actual_score_a", "actual_score_b"]], on="match_label", how="left", suffixes=("", "_score"))
-        df["actual_score_a"] = df["actual_score_a_score"].combine_first(df["actual_score_a"])
-        df["actual_score_b"] = df["actual_score_b_score"].combine_first(df["actual_score_b"])
-        df = df.drop(columns=["actual_score_a_score", "actual_score_b_score"])
+        if not scores.empty:
+            df = _merge_scores_into_matches(df, scores)
 
     df["is_finished"] = df["actual_score_a"].notna() & df["actual_score_b"].notna()
     return df
@@ -240,7 +279,11 @@ def load_matches():
 def load_scores():
     df = pd.read_csv(SCORES_FILE)
     if "match_id" in df.columns:
-        df["match_id"] = pd.to_numeric(df["match_id"], errors="coerce").astype(int)
+        numeric_ids = pd.to_numeric(df["match_id"], errors="coerce")
+        if numeric_ids.notna().all():
+            df["match_id"] = numeric_ids.astype(int)
+        else:
+            df = df.drop(columns=["match_id"])
     df["match_label"] = df["match_label"].astype(str).str.strip()
     df["actual_score_a"] = pd.to_numeric(df["actual_score_a"], errors="coerce")
     df["actual_score_b"] = pd.to_numeric(df["actual_score_b"], errors="coerce")
@@ -254,22 +297,47 @@ def load_users():
     return df
 
 
+PREDICTION_COLUMNS = [
+    "participant_id",
+    "username",
+    "match_id",
+    "match_label",
+    "predicted_score_a",
+    "predicted_score_b",
+    "predicted_outcome",
+    "saved_at",
+]
+
+
 def load_predictions():
+    if PREDICTIONS_CSV.exists():
+        df = pd.read_csv(PREDICTIONS_CSV)
+        result = df if not df.empty else pd.DataFrame(columns=PREDICTION_COLUMNS)
+        if df.empty and PREDICTIONS_XLSX.exists():
+            try:
+                xlsx_df = pd.read_excel(PREDICTIONS_XLSX)
+                if not xlsx_df.empty:
+                    save_predictions(result)
+            except FileNotFoundError:
+                pass
+        return result
     try:
         return pd.read_excel(PREDICTIONS_XLSX)
     except FileNotFoundError:
-        return pd.DataFrame(
-            columns=[
-                "participant_id",
-                "username",
-                "match_id",
-                "match_label",
-                "predicted_score_a",
-                "predicted_score_b",
-                "predicted_outcome",
-                "saved_at",
-            ]
-        )
+        return pd.DataFrame(columns=PREDICTION_COLUMNS)
+
+
+def filter_actual_predictions(predictions, matches):
+    if predictions.empty or matches.empty:
+        return predictions.iloc[0:0].copy()
+
+    valid_ids = set(matches["match_id"].astype(int))
+    df = predictions.copy()
+    df["match_id"] = pd.to_numeric(df["match_id"], errors="coerce")
+    df = df[df["match_id"].notna()]
+    df["match_id"] = df["match_id"].astype(int)
+    df = df[df["match_id"].isin(valid_ids)]
+    return df.reset_index(drop=True)
 
 
 def save_predictions(df):
@@ -351,23 +419,46 @@ def compute_score(row, match_row):
 
 
 def build_leaderboard(predictions, matches):
+    columns = [
+        "Rank",
+        "Participant ID",
+        "Name",
+        "Matches Predicted",
+        "Correct Predictions",
+        "Total Points",
+    ]
     if predictions.empty:
-        return pd.DataFrame(
-            columns=["Rank", "Participant ID", "Name", "Total Points"]
-        )
+        return pd.DataFrame(columns=columns)
 
     scores = []
     for pid, group in predictions.groupby("participant_id"):
         total = 0
+        matches_predicted = 0
+        correct_predictions = 0
         name = group["username"].iloc[0] if "username" in group.columns else ""
         for _, row in group.iterrows():
             match_row = matches[matches["match_id"] == int(row["match_id"])]
-            if not match_row.empty:
-                points = compute_score(row, match_row.iloc[0])
-                if points is not None:
-                    total += points
-        scores.append({"Participant ID": pid, "Name": name, "Total Points": total})
+            if match_row.empty:
+                continue
+            matches_predicted += 1
+            points = compute_score(row, match_row.iloc[0])
+            if points is not None:
+                total += points
+                if points > 0:
+                    correct_predictions += 1
+        scores.append(
+            {
+                "Participant ID": pid,
+                "Name": name,
+                "Matches Predicted": matches_predicted,
+                "Correct Predictions": correct_predictions,
+                "Total Points": total,
+            }
+        )
 
-    leaderboard = pd.DataFrame(scores).sort_values(by="Total Points", ascending=False)
+    leaderboard = pd.DataFrame(scores).sort_values(
+        by=["Total Points", "Correct Predictions", "Matches Predicted"],
+        ascending=False,
+    )
     leaderboard.insert(0, "Rank", range(1, len(leaderboard) + 1))
     return leaderboard
