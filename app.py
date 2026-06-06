@@ -12,10 +12,15 @@ from process_data import (
     save_user_name,
     save_scores,
     build_leaderboard,
+    build_admin_user_summary,
+    build_admin_user_detail,
     compute_score,
     filter_actual_predictions,
     display_team_name,
     display_match_label,
+    DEMO_ROUND,
+    DEMO_KICKOFF_MINUTES,
+    DEMO_DEADLINE_MINUTES,
 )
 from scoring_rules import SCORING_DESCRIPTION
 
@@ -135,10 +140,25 @@ GROUP_ROWS = [
     ["Group E", "Group F", "Group G", "Group H"],
     ["Group I", "Group J", "Group K", "Group L"],
 ]
+DEMO_GROUP_ROWS = [["Group A", "Group B"]]
+
+
+def _round_sort_key(round_number):
+    round_key = str(round_number)
+    if round_key == DEMO_ROUND:
+        return (0, 0)
+    if round_key.isdigit():
+        return (1, int(round_key))
+    return (2, round_key)
+
+
 def _round_label(round_number):
-    if str(round_number).isdigit():
-        return f"Round {int(round_number)}"
-    return str(round_number)
+    round_key = str(round_number)
+    if round_key == DEMO_ROUND:
+        return DEMO_ROUND
+    if round_key.isdigit():
+        return f"Round {int(round_key)}"
+    return round_key
 
 def _short_group_name(group):
     return group.replace("Group ", "Group  ")
@@ -283,12 +303,124 @@ def render_round_grid(
                 )
 
 
+def _admin_match_select_options(matches):
+    pending = matches[~matches["is_finished"]]
+    rows = (
+        pending[["match_id", "match_label"]]
+        .drop_duplicates(subset=["match_id"])
+        .sort_values("match_id")
+    )
+    labels = []
+    match_id_by_label = {}
+    for _, row in rows.iterrows():
+        match_id = int(row["match_id"])
+        label = f"{match_id} — {display_match_label(row['match_label'])}"
+        labels.append(label)
+        match_id_by_label[label] = match_id
+    return labels, match_id_by_label
+
+
+def render_admin_panel(matches, predictions):
+    st.subheader("Admin control & view")
+
+    summary = build_admin_user_summary(predictions, matches)
+    st.markdown("**All signed-in participants**")
+    if summary.empty:
+        st.info("No registered participants yet.")
+    else:
+        display_table(summary)
+
+    st.divider()
+    st.markdown("**Participant detail**")
+    if summary.empty:
+        st.caption("Register participants to inspect individual predictions.")
+    else:
+        participant_ids = summary["Participant ID"].tolist()
+        selected_id = st.selectbox(
+            "Select participant ID",
+            participant_ids,
+            key="admin_selected_participant",
+        )
+        selected_username = summary.loc[
+            summary["Participant ID"] == selected_id, "Username"
+        ].iloc[0]
+        st.markdown(
+            f"**{selected_id}** ({selected_username}) — match-by-match predictions and performance"
+        )
+        detail = build_admin_user_detail(selected_id, predictions, matches)
+        if detail.empty:
+            st.info(f"No predictions recorded for {selected_id}.")
+        else:
+            detail["Match"] = detail["Match"].map(display_match_label)
+            display_table(detail)
+
+    st.divider()
+    st.markdown("**Update match scores**")
+    scores = load_scores()
+    st.caption("Current score settings used to calculate points.")
+    display_table(scores)
+
+    match_labels, match_id_by_label = _admin_match_select_options(matches)
+
+    if not match_labels:
+        st.info("All matches have scores recorded. Nothing left to update.")
+    else:
+        with st.form(key="admin_score_update"):
+            update_cols = st.columns(4)
+            selected_label = update_cols[0].selectbox(
+                "Match", match_labels, key="admin_match_id"
+            )
+            selected_match = match_id_by_label[selected_label]
+            score_a_text = update_cols[1].text_input(
+                "Team A score", value="0", key="admin_score_a"
+            )
+            score_b_text = update_cols[2].text_input(
+                "Team B score", value="0", key="admin_score_b"
+            )
+            submitted = update_cols[3].form_submit_button("Update score")
+            if submitted:
+                try:
+                    new_score_a = _parse_score(score_a_text, "Team A")
+                    new_score_b = _parse_score(score_b_text, "Team B")
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    if scores.empty or "match_id" not in scores.columns:
+                        scores = pd.DataFrame(
+                            columns=["match_id", "match_label", "actual_score_a", "actual_score_b"]
+                        )
+                    match_row = matches[matches["match_id"] == selected_match].iloc[0]
+                    scores = pd.concat(
+                        [
+                            scores,
+                            pd.DataFrame(
+                                [
+                                    {
+                                        "match_id": selected_match,
+                                        "match_label": match_row["match_label"],
+                                        "actual_score_a": new_score_a,
+                                        "actual_score_b": new_score_b,
+                                    }
+                                ]
+                            ),
+                        ],
+                        ignore_index=True,
+                    )
+                    save_scores(scores)
+                    st.success(f"Updated scores for match ID {selected_match}.")
+                    st.rerun()
+
+
+def display_table(df):
+    st.dataframe(df, width="stretch", height="content", hide_index=True)
+
+
 def display_leaderboard(leaderboard, is_admin):
     if is_admin:
         display_cols = [
             "Rank",
             "Participant ID",
-            "Name",
+            "Username",
             "Matches Predicted",
             "Correct Predictions",
             "Total Points",
@@ -296,12 +428,13 @@ def display_leaderboard(leaderboard, is_admin):
     else:
         display_cols = [
             "Rank",
-            "Name",
+            "Username",
             "Matches Predicted",
             "Correct Predictions",
             "Total Points",
         ]
-    st.dataframe(leaderboard[display_cols], width=True, hide_index=True)
+    visible_cols = [col for col in display_cols if col in leaderboard.columns]
+    display_table(leaderboard[visible_cols])
 
 
 icon_col,title_col = st.columns([1, 10])
@@ -333,6 +466,7 @@ if auto_login_id and not st.session_state.logged_in:
             st.session_state.logged_in = True
             st.session_state.participant_id = auto_login_id
             st.session_state.username = existing_name
+            st.session_state.is_admin = auto_login_id == "ADMIN01"
             st.rerun()
 
 if not st.session_state.logged_in:
@@ -425,56 +559,9 @@ if header_col2.button("Logout", key="logout_button"):
 st.divider()
 
 if is_admin:
-    st.subheader("Admin panel")
-    st.info("Admin can view all user predictions, leaderboard details, and update match scores.")
-
-    scores = load_scores()
-    st.markdown("**Current match score settings**")
-    st.dataframe(scores, width=True, hide_index=True)
-
-    with st.form(key="admin_score_update"):
-        update_cols = st.columns(4)
-        selected_match = update_cols[0].selectbox(
-            "Match ID", scores["match_id"].tolist(), key="admin_match_id"
-        )
-        new_score_a = update_cols[1].number_input(
-            "Team A score", min_value=0, max_value=20, value=0, key="admin_score_a"
-        )
-        new_score_b = update_cols[2].number_input(
-            "Team B score", min_value=0, max_value=20, value=0, key="admin_score_b"
-        )
-        if update_cols[3].form_submit_button("Update score"):
-            scores.loc[scores["match_id"] == selected_match, ["actual_score_a", "actual_score_b"]] = [new_score_a, new_score_b]
-            save_scores(scores)
-            st.success(f"Updated scores for match ID {selected_match}.")
-            st.experimental_rerun()
-
-    admin_preds = predictions.copy()
-    if not admin_preds.empty:
-        admin_preds = admin_preds.merge(
-            matches[["match_id", "match_label", "actual_score_a", "actual_score_b"]],
-            on="match_id",
-            how="left",
-        )
-        admin_preds["Points"] = admin_preds.apply(
-            lambda row: compute_score(row, matches[matches["match_id"] == int(row["match_id"])].iloc[0]),
-            axis=1,
-        )
-        admin_preds["Actual score"] = admin_preds.apply(
-            lambda row: f"{int(row['actual_score_a'])}-{int(row['actual_score_b'])}" if pd.notna(row['actual_score_a']) and pd.notna(row['actual_score_b']) else "Pending",
-            axis=1,
-        )
-        admin_preds["match_label"] = admin_preds["match_label"].map(display_match_label)
-        st.subheader("All user predictions")
-        st.dataframe(
-            admin_preds[
-                ["participant_id", "username", "match_label", "predicted_score_a", "predicted_score_b", "predicted_outcome", "Actual score", "Points"]
-            ],
-            width=True,
-            hide_index=True,
-        )
-
-    st.divider()
+    render_admin_panel(matches, predictions)
+    st.markdown("---\n## Scoring Rules\n" + SCORING_DESCRIPTION)
+    st.stop()
 
 now = datetime.now()
 upcoming = matches[~matches["is_finished"] & (matches["prediction_deadline"] >= now)].copy()
@@ -487,22 +574,29 @@ st.badge("Match times have been converted to Central European local time",color=
 if upcoming.empty:
     st.info("No upcoming matches are available for prediction at this time.")
 else:
-    round_order = (
-        upcoming.groupby("round_number")["match_date"].min().sort_values().index.tolist()
-    )
+    round_dates = upcoming.groupby("round_number")["match_date"].min()
+    round_order = sorted(round_dates.index.tolist(), key=_round_sort_key)
 
     for round_number in round_order:
         round_key = str(round_number)
         round_matches = upcoming[upcoming["round_number"].astype(str) == round_key]
         match_count = len(round_matches)
         expander_label = f"{_round_label(round_number)} — {match_count} matches"
-        with st.expander(expander_label, expanded=False):
+        is_demo_round = round_key == DEMO_ROUND
+        with st.expander(expander_label, expanded=is_demo_round):
+            if is_demo_round:
+                st.caption(
+                    f"Demo matches — predict within {DEMO_DEADLINE_MINUTES} minutes; "
+                    f"kick-off in ~{DEMO_KICKOFF_MINUTES} minutes. "
+                    "Results appear in the same tables once ADMIN01 enters scores."
+                )
             render_round_grid(
                 round_matches,
                 participant_id,
                 username,
                 predictions,
                 now,
+                group_rows=DEMO_GROUP_ROWS if is_demo_round else GROUP_ROWS,
             )
 
 st.divider()
@@ -546,24 +640,43 @@ else:
             }
         )
     finished_display = pd.DataFrame(rows)
-    st.dataframe(finished_display, width=True, hide_index=True)
+    display_table(finished_display)
 st.divider()
 
 st.subheader("My Predictions")
-user_preds = predictions[predictions["participant_id"] == participant_id]
+user_preds = predictions[
+    predictions["participant_id"].astype(str).str.upper() == participant_id.upper()
+].copy()
+if not user_preds.empty and "saved_at" in user_preds.columns:
+    user_preds["saved_at"] = pd.to_datetime(user_preds["saved_at"], errors="coerce")
+    user_preds = user_preds.sort_values(["saved_at", "match_id"], ascending=False, na_position="last")
+
 history = []
 for _, row in user_preds.iterrows():
     match_row = matches[matches["match_id"] == int(row["match_id"])]
     if match_row.empty:
         continue
     match_row = match_row.iloc[0]
+    predicted_a = int(row["predicted_score_a"])
+    predicted_b = int(row["predicted_score_b"])
+
     if not match_row["is_finished"]:
+        history.append(
+            {
+                "Match": display_match_label(row["match_label"]),
+                "Result": "Pending",
+                "Your prediction": f"{predicted_a}-{predicted_b}",
+                "Win": "—",
+                "Draw": "—",
+                "Goals": "—",
+                "Points": "Pending",
+            }
+        )
         continue
+
     points = compute_score(row, match_row)
     actual_a = int(match_row["actual_score_a"])
     actual_b = int(match_row["actual_score_b"])
-    predicted_a = int(row["predicted_score_a"])
-    predicted_b = int(row["predicted_score_b"])
 
     actual_outcome = "A" if actual_a > actual_b else ("B" if actual_b > actual_a else "Draw")
     predicted_outcome = "A" if predicted_a > predicted_b else ("B" if predicted_b > predicted_a else "Draw")
@@ -585,11 +698,11 @@ for _, row in user_preds.iterrows():
     )
 
 if not history:
-    st.info("No completed match predictions yet. Results appear here once the competition begins and scores are recorded.")
+    st.info("No predictions saved yet. Make picks in Upcoming matches above.")
 else:
     history_df = pd.DataFrame(history)
     history_df = history_df[["Match", "Result", "Your prediction", "Win", "Draw", "Goals", "Points"]]
-    st.dataframe(history_df, width=True, hide_index=True)
+    display_table(history_df)
 
 st.divider()
 

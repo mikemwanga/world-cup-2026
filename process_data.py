@@ -1,5 +1,5 @@
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 
@@ -20,6 +20,40 @@ PREDICTIONS_CSV = DATA_DIR / "predictions.csv"
 PREDICTIONS_XLSX = DATA_DIR / "predictions.xlsx"
 ADMIN_USER_ID = "ADMIN01"
 ADMIN_USERNAME = "Admin"
+
+DEMO_ROUND = "Round0"
+DEMO_KICKOFF_MINUTES = 20
+DEMO_DEADLINE_MINUTES = 10
+DEMO_MATCH_DEFINITIONS = [
+    {
+        "match_id": 9001,
+        "group": "Group A",
+        "team_a": "Demo Lions",
+        "team_b": "Demo Tigers",
+        "location": "Demo Stadium",
+    },
+    {
+        "match_id": 9002,
+        "group": "Group A",
+        "team_a": "Demo Eagles",
+        "team_b": "Demo Bears",
+        "location": "Demo Stadium",
+    },
+    {
+        "match_id": 9003,
+        "group": "Group B",
+        "team_a": "Demo Sharks",
+        "team_b": "Demo Wolves",
+        "location": "Demo Arena",
+    },
+    {
+        "match_id": 9004,
+        "group": "Group B",
+        "team_a": "Demo Hawks",
+        "team_b": "Demo Foxes",
+        "location": "Demo Arena",
+    },
+]
 
 DISPLAY_TEAM_ALIASES = {
     "Bosnia and Herzegovina": "Bosnia-Hzgv",
@@ -257,6 +291,32 @@ def _normalize_matches_df(df):
     return df
 
 
+def build_demo_matches(now=None):
+    if now is None:
+        now = datetime.now()
+    kickoff = now + timedelta(minutes=DEMO_KICKOFF_MINUTES)
+    deadline = now + timedelta(minutes=DEMO_DEADLINE_MINUTES)
+    rows = []
+    for match_def in DEMO_MATCH_DEFINITIONS:
+        rows.append(
+            {
+                "match_id": match_def["match_id"],
+                "round_number": DEMO_ROUND,
+                "match_date": kickoff,
+                "prediction_deadline": deadline,
+                "location": match_def["location"],
+                "team_a": match_def["team_a"],
+                "team_b": match_def["team_b"],
+                "group": match_def["group"],
+                "result": "",
+                "actual_score_a": pd.NA,
+                "actual_score_b": pd.NA,
+                "match_label": f"{match_def['team_a']} vs {match_def['team_b']}",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def load_matches():
     source_file = MATCHES_FILE
     if DATA_FIFA_FILE.exists():
@@ -266,6 +326,8 @@ def load_matches():
 
     df = pd.read_csv(source_file)
     df = _normalize_matches_df(df)
+    demo_df = build_demo_matches()
+    df = pd.concat([demo_df, df], ignore_index=True)
 
     if SCORES_FILE.exists():
         scores = load_scores()
@@ -293,8 +355,26 @@ def load_scores():
 def load_users():
     df = pd.read_csv(USERS_FILE)
     df["participant_id"] = df["participant_id"].astype(str).str.upper()
-    df["username"] = df["username"].fillna("")
+    df["username"] = df["username"].fillna("").astype(str).str.strip()
+    if "first_signed_in_at" not in df.columns:
+        df["first_signed_in_at"] = ""
+    df["first_signed_in_at"] = df["first_signed_in_at"].fillna("").astype(str)
     return df
+
+
+def _first_signed_in_for_user(participant_id, users, predictions):
+    participant_id = participant_id.strip().upper()
+    user_row = users[users["participant_id"] == participant_id]
+    if not user_row.empty:
+        stored = str(user_row["first_signed_in_at"].iloc[0]).strip()
+        if stored:
+            return stored
+    if predictions.empty:
+        return "—"
+    user_preds = predictions[predictions["participant_id"].astype(str).str.upper() == participant_id]
+    if user_preds.empty or "saved_at" not in user_preds.columns:
+        return "—"
+    return str(user_preds["saved_at"].min())
 
 
 PREDICTION_COLUMNS = [
@@ -353,7 +433,14 @@ def save_user_name(participant_id, username):
     df = load_users()
     participant_id = participant_id.strip().upper()
     if participant_id in df["participant_id"].values:
+        existing = str(df.loc[df["participant_id"] == participant_id, "username"].iloc[0]).strip()
+        if existing:
+            return False
+        now = datetime.now().isoformat(sep=" ", timespec="seconds")
         df.loc[df["participant_id"] == participant_id, "username"] = username.strip()
+        if "first_signed_in_at" not in df.columns:
+            df["first_signed_in_at"] = ""
+        df.loc[df["participant_id"] == participant_id, "first_signed_in_at"] = now
         df.to_csv(USERS_FILE, index=False)
         return True
     return False
@@ -422,7 +509,7 @@ def build_leaderboard(predictions, matches):
     columns = [
         "Rank",
         "Participant ID",
-        "Name",
+        "Username",
         "Matches Predicted",
         "Correct Predictions",
         "Total Points",
@@ -430,12 +517,18 @@ def build_leaderboard(predictions, matches):
     if predictions.empty:
         return pd.DataFrame(columns=columns)
 
+    users = load_users()
+    username_by_id = users.set_index("participant_id")["username"].astype(str).str.strip().to_dict()
+
     scores = []
     for pid, group in predictions.groupby("participant_id"):
         total = 0
         matches_predicted = 0
         correct_predictions = 0
-        name = group["username"].iloc[0] if "username" in group.columns else ""
+        pid_key = str(pid).strip().upper()
+        name = username_by_id.get(pid_key, "")
+        if not name and "username" in group.columns:
+            name = str(group["username"].iloc[0]).strip()
         for _, row in group.iterrows():
             match_row = matches[matches["match_id"] == int(row["match_id"])]
             if match_row.empty:
@@ -448,13 +541,16 @@ def build_leaderboard(predictions, matches):
                     correct_predictions += 1
         scores.append(
             {
-                "Participant ID": pid,
-                "Name": name,
+                "Participant ID": pid_key,
+                "Username": name or "—",
                 "Matches Predicted": matches_predicted,
                 "Correct Predictions": correct_predictions,
                 "Total Points": total,
             }
         )
+
+    if not scores:
+        return pd.DataFrame(columns=columns)
 
     leaderboard = pd.DataFrame(scores).sort_values(
         by=["Total Points", "Correct Predictions", "Matches Predicted"],
@@ -462,3 +558,132 @@ def build_leaderboard(predictions, matches):
     )
     leaderboard.insert(0, "Rank", range(1, len(leaderboard) + 1))
     return leaderboard
+
+
+def _prediction_performance(row, match_row):
+    if not match_row["is_finished"]:
+        return {
+            "points": None,
+            "win": "—",
+            "draw": "—",
+            "goals": "—",
+            "result": "Pending",
+        }
+
+    points = compute_score(row, match_row)
+    actual_a = int(match_row["actual_score_a"])
+    actual_b = int(match_row["actual_score_b"])
+    predicted_a = int(row["predicted_score_a"])
+    predicted_b = int(row["predicted_score_b"])
+    actual_outcome = get_prediction_key(actual_a, actual_b)
+    predicted_outcome = get_prediction_key(predicted_a, predicted_b)
+    win_correct = actual_outcome in ["A", "B"] and predicted_outcome == actual_outcome
+    draw_correct = actual_outcome == "Draw" and predicted_outcome == "Draw"
+    goals_correct = (predicted_a == actual_a) and (predicted_b == actual_b)
+
+    return {
+        "points": points if points is not None else 0,
+        "win": "✅" if win_correct else "❌",
+        "draw": "✅" if draw_correct else "❌",
+        "goals": "✅" if goals_correct else "❌",
+        "result": f"{actual_a}-{actual_b}",
+    }
+
+
+def build_admin_user_summary(predictions, matches):
+    users = load_users()
+    registered = users[
+        (users["username"] != "")
+        & (users["participant_id"] != ADMIN_USER_ID)
+    ]
+    participant_ids = registered["participant_id"].tolist()
+
+    rows = []
+    for pid in sorted(participant_ids):
+        pid = str(pid).strip().upper()
+        user_row = users[users["participant_id"] == pid]
+        username = user_row["username"].iloc[0] if not user_row.empty else ""
+        if not username and not predictions.empty:
+            user_preds_lookup = predictions[predictions["participant_id"].astype(str).str.upper() == pid]
+            if not user_preds_lookup.empty and "username" in user_preds_lookup.columns:
+                username = str(user_preds_lookup["username"].iloc[0]).strip()
+
+        user_preds = (
+            predictions[predictions["participant_id"].astype(str).str.upper() == pid]
+            if not predictions.empty
+            else predictions
+        )
+        matches_predicted = len(user_preds)
+        correct = 0
+        wrong = 0
+        pending = 0
+        total_points = 0
+
+        for _, pred in user_preds.iterrows():
+            match_row = matches[matches["match_id"] == int(pred["match_id"])]
+            if match_row.empty:
+                continue
+            match_row = match_row.iloc[0]
+            perf = _prediction_performance(pred, match_row)
+            if perf["points"] is None:
+                pending += 1
+            elif perf["points"] > 0:
+                correct += 1
+                total_points += perf["points"]
+            else:
+                wrong += 1
+                total_points += perf["points"]
+
+        rows.append(
+            {
+                "Participant ID": pid,
+                "Username": username or "—",
+                "First signed in": _first_signed_in_for_user(pid, users, predictions),
+                "Matches predicted": matches_predicted,
+                "Correct": correct,
+                "Wrong": wrong,
+                "Pending": pending,
+                "Total points": total_points,
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def build_admin_user_detail(participant_id, predictions, matches):
+    participant_id = participant_id.strip().upper()
+    if predictions.empty:
+        return pd.DataFrame()
+
+    user_preds = predictions[
+        predictions["participant_id"].astype(str).str.upper() == participant_id
+    ].copy()
+    if user_preds.empty:
+        return pd.DataFrame()
+
+    user_preds["saved_at"] = pd.to_datetime(user_preds["saved_at"], errors="coerce")
+    user_preds = user_preds.sort_values(["saved_at", "match_id"], na_position="last")
+
+    rows = []
+    for _, pred in user_preds.iterrows():
+        match_row = matches[matches["match_id"] == int(pred["match_id"])]
+        if match_row.empty:
+            continue
+        match_row = match_row.iloc[0]
+        perf = _prediction_performance(pred, match_row)
+        saved_at = pred["saved_at"]
+        rows.append(
+            {
+                "Match ID": int(pred["match_id"]),
+                "Match": match_row["match_label"],
+                "Predicted at": saved_at.strftime("%Y-%m-%d %H:%M") if pd.notna(saved_at) else "—",
+                "Prediction": f"{int(pred['predicted_score_a'])}-{int(pred['predicted_score_b'])}",
+                "Actual result": perf["result"],
+                "Win": perf["win"],
+                "Draw": perf["draw"],
+                "Goals": perf["goals"],
+                "Points": perf["points"] if perf["points"] is not None else "Pending",
+            }
+        )
+
+    return pd.DataFrame(rows)
