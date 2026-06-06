@@ -56,15 +56,30 @@ st.markdown(
             margin-right: 0.35rem;
             vertical-align: middle;
         }
-        div[data-testid="stForm"] button[kind="primaryFormSubmit"] {
-            background-color: #1565c0;
-            border-color: #1565c0;
-            color: #ffffff;
+        div[data-testid="stFormSubmitButton"] button {
+            background-color: #1565c0 !important;
+            border-color: #1565c0 !important;
+            color: #ffffff !important;
+            width: 100% !important;
+            min-width: 4.5rem !important;
+            min-height: 2.4rem !important;
+            height: auto !important;
+            padding: 0.4rem 0.75rem !important;
         }
-        div[data-testid="stForm"] button[kind="primaryFormSubmit"]:hover {
-            background-color: #0d47a1;
-            border-color: #0d47a1;
-            color: #ffffff;
+        div[data-testid="stFormSubmitButton"] button:hover {
+            background-color: #0d47a1 !important;
+            border-color: #0d47a1 !important;
+        }
+        div[data-testid="stFormSubmitButton"] button p,
+        div[data-testid="stFormSubmitButton"] button span,
+        div[data-testid="stFormSubmitButton"] button div {
+            writing-mode: horizontal-tb !important;
+            text-orientation: mixed !important;
+            white-space: nowrap !important;
+            word-break: keep-all !important;
+            overflow: visible !important;
+            line-height: 1.2 !important;
+            letter-spacing: normal !important;
         }
         .round-section {
             margin-top: 0.25rem;
@@ -192,7 +207,7 @@ def render_match_card(
             key=f"score_b_{key_prefix}{match_id}",
         )
 
-        submitted = st.form_submit_button("Save", type="primary", width=True)
+        submitted = st.form_submit_button("Save", type="primary", use_container_width=True)
         if submitted:
             if deadline_passed:
                 st.error("Prediction deadline has passed.")
