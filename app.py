@@ -665,7 +665,7 @@ for _, row in user_preds.iterrows():
             {
                 "Match": display_match_label(row["match_label"]),
                 "Result": "Pending",
-                "Your prediction": f"{predicted_a}-{predicted_b}",
+                "My prediction": f"{predicted_a}-{predicted_b}",
                 "Win": "—",
                 "Draw": "—",
                 "Goals": "—",
@@ -689,7 +689,7 @@ for _, row in user_preds.iterrows():
         {
             "Match": display_match_label(row["match_label"]),
             "Result": f"{actual_a}-{actual_b}",
-            "Your prediction": f"{predicted_a}-{predicted_b}",
+            "My prediction": f"{predicted_a}-{predicted_b}",
             "Win": "✅" if win_correct else "❌",
             "Draw": "✅" if draw_correct else "❌",
             "Goals": "✅" if goals_correct else "❌",
