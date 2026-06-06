@@ -419,6 +419,8 @@ if header_col2.button("Logout", key="logout_button"):
     st.session_state.participant_id = ""
     st.session_state.username = ""
     st.session_state.is_admin = False
+    if "id" in st.query_params:
+        del st.query_params["id"]
     st.rerun()
 
 st.divider()
@@ -481,6 +483,8 @@ upcoming = upcoming.sort_values(by=["round_number", "group", "match_date"])
 finished = matches[matches["is_finished"]].sort_values(by="match_date", ascending=False)
 
 st.subheader("Upcoming matches")
+st.badge("Match times have been converted to Swiss local time",color="blue")
+
 if upcoming.empty:
     st.info("No upcoming matches are available for prediction at this time.")
 else:
@@ -488,12 +492,12 @@ else:
         upcoming.groupby("round_number")["match_date"].min().sort_values().index.tolist()
     )
 
-    for round_idx, round_number in enumerate(round_order):
+    for round_number in round_order:
         round_key = str(round_number)
         round_matches = upcoming[upcoming["round_number"].astype(str) == round_key]
         match_count = len(round_matches)
         expander_label = f"{_round_label(round_number)} — {match_count} matches"
-        with st.expander(expander_label, expanded=(round_idx == 0)):
+        with st.expander(expander_label, expanded=False):
             render_round_grid(
                 round_matches,
                 participant_id,
