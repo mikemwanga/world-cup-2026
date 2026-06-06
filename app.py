@@ -23,7 +23,7 @@ ensure_data_files()
 
 page_icon = "icons/coronavirus.png"
 ballicon ="icons/kicking-ball.png"
-st.set_page_config(page_title="Football Predictions", page_icon=page_icon, layout="wide")
+st.set_page_config(page_title="IVI WorldCup Soccer Predictions", page_icon=page_icon, layout="wide")
 
 st.markdown(
     """
@@ -127,7 +127,7 @@ def _round_label(round_number):
 
 
 def _short_group_name(group):
-    return group.replace("Group ", "Grp ")
+    return group.replace("Group ", "Group ")
 
 
 def _parse_score(text, team_name):
@@ -192,7 +192,7 @@ def render_match_card(
             key=f"score_b_{key_prefix}{match_id}",
         )
 
-        submitted = st.form_submit_button("Save", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("Save", type="primary", width=True)
         if submitted:
             if deadline_passed:
                 st.error("Prediction deadline has passed.")
@@ -287,13 +287,13 @@ def display_leaderboard(leaderboard, is_admin):
             "Correct Predictions",
             "Total Points",
         ]
-    st.dataframe(leaderboard[display_cols], use_container_width=True, hide_index=True)
+    st.dataframe(leaderboard[display_cols], width=True, hide_index=True)
 
 
-balcol,title_col,icon_col = st.columns([1,10,1])
-title_col.markdown("# Football World Cup 2026")
+icon_col,title_col = st.columns([1, 10])
+title_col.markdown("# IVI 2026 World Cup Predictions")
 icon_col.image(page_icon, width='content')
-balcol.image(ballicon, width='content')
+#balcol.image(ballicon, width='stretch')
 
 matches = load_matches()
 users = load_users()
@@ -304,7 +304,7 @@ if "logged_in" not in st.session_state:
     st.session_state.participant_id = ""
     st.session_state.username = ""
 
-st.header("IVI Predictions")
+#st.header("IVI Predictions")
 st.markdown(
     "This is a single-page private prediction app. Use your assigned participant ID; no personal email is required."
 )
@@ -414,7 +414,7 @@ if is_admin:
 
     scores = load_scores()
     st.markdown("**Current match score settings**")
-    st.dataframe(scores, use_container_width=True, hide_index=True)
+    st.dataframe(scores, width=True, hide_index=True)
 
     with st.form(key="admin_score_update"):
         update_cols = st.columns(4)
@@ -454,7 +454,7 @@ if is_admin:
             admin_preds[
                 ["participant_id", "username", "match_label", "predicted_score_a", "predicted_score_b", "predicted_outcome", "Actual score", "Points"]
             ],
-            use_container_width=True,
+            width=True,
             hide_index=True,
         )
 
@@ -528,7 +528,7 @@ else:
             }
         )
     finished_display = pd.DataFrame(rows)
-    st.dataframe(finished_display, use_container_width=True, hide_index=True)
+    st.dataframe(finished_display, width=True, hide_index=True)
 st.divider()
 
 st.subheader("My Predictions")
@@ -571,7 +571,7 @@ if not history:
 else:
     history_df = pd.DataFrame(history)
     history_df = history_df[["Match", "Result", "Your prediction", "Win", "Draw", "Goals", "Points"]]
-    st.dataframe(history_df, use_container_width=True, hide_index=True)
+    st.dataframe(history_df, width=True, hide_index=True)
 
 st.divider()
 
