@@ -3,6 +3,11 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
 from scoring_rules import (
     EXACT_SCORE_POINTS,
     CORRECT_OUTCOME_POINTS,
@@ -14,7 +19,9 @@ DATA_DIR = ROOT / "data"
 MATCHES_FILE = DATA_DIR / "matches.csv"
 DATA_FIFA_FILE = DATA_DIR / "fifa-world-cup-2026.csv"
 ORIGINAL_FIFA_FILE = ROOT / "fifa-world-cup-2026-original.csv"
-USERS_FILE = DATA_DIR / "users.csv"
+USERS_REGISTRY_FILE = DATA_DIR / ".users.toml"
+USERS_REGISTRY_EXAMPLE = DATA_DIR / "users.toml.example"
+USERS_STATE_FILE = DATA_DIR / "users_state.toml"
 SCORES_FILE = DATA_DIR / "scores.csv"
 PREDICTIONS_CSV = DATA_DIR / "predictions.csv"
 PREDICTIONS_XLSX = DATA_DIR / "predictions.xlsx"
@@ -123,23 +130,8 @@ def display_match_label(label_or_team_a, team_b=None):
 def ensure_data_files():
     DATA_DIR.mkdir(exist_ok=True)
 
-    if not USERS_FILE.exists():
-        users = pd.DataFrame(
-            {
-                "participant_id": DEFAULT_USER_IDS + [ADMIN_USER_ID],
-                "username": ["" for _ in DEFAULT_USER_IDS] + [ADMIN_USERNAME],
-            }
-        )
-        users.to_csv(USERS_FILE, index=False)
-    else:
-        users = pd.read_csv(USERS_FILE)
-        if ADMIN_USER_ID not in users["participant_id"].astype(str).str.upper().values:
-            users = pd.concat(
-                [users,
-                 pd.DataFrame({"participant_id": [ADMIN_USER_ID], "username": [ADMIN_USERNAME]})],
-                ignore_index=True,
-            )
-            users.to_csv(USERS_FILE, index=False)
+    if not USERS_REGISTRY_EXAMPLE.exists():
+        _write_users_registry_example()
 
     if not MATCHES_FILE.exists():
         source_file = None
@@ -352,13 +344,172 @@ def load_scores():
     return df
 
 
+def _read_toml(path):
+    with path.open("rb") as handle:
+        return tomllib.load(handle)
+
+
+def _toml_escape(value):
+    return str(value).replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _normalize_user_entry(entry):
+    if not isinstance(entry, dict):
+        return None
+    participant_id = str(entry.get("participant_id", "")).strip().upper()
+    if not participant_id:
+        return None
+    username = entry.get("username", "")
+    if username is None:
+        username = ""
+    first_signed_in_at = entry.get("first_signed_in_at", "")
+    if first_signed_in_at is None:
+        first_signed_in_at = ""
+    return {
+        "participant_id": participant_id,
+        "username": str(username).strip(),
+        "first_signed_in_at": str(first_signed_in_at).strip(),
+    }
+
+
+def _parse_users_toml_data(data):
+    users_data = data.get("users", [])
+    entries = []
+
+    if isinstance(users_data, list):
+        for item in users_data:
+            normalized = _normalize_user_entry(item)
+            if normalized:
+                entries.append(normalized)
+    elif isinstance(users_data, dict):
+        for participant_id, value in users_data.items():
+            if isinstance(value, dict):
+                normalized = _normalize_user_entry(
+                    {
+                        "participant_id": participant_id,
+                        "username": value.get("username", ""),
+                        "first_signed_in_at": value.get("first_signed_in_at", ""),
+                    }
+                )
+            else:
+                normalized = _normalize_user_entry(
+                    {"participant_id": participant_id, "username": value}
+                )
+            if normalized:
+                entries.append(normalized)
+
+    return entries
+
+
+def _load_users_registry_entries():
+    try:
+        import streamlit as st
+
+        if hasattr(st, "secrets") and "users" in st.secrets:
+            secret_users = st.secrets["users"]
+            if isinstance(secret_users, list):
+                entries = [
+                    normalized
+                    for item in secret_users
+                    if (normalized := _normalize_user_entry(dict(item)))
+                ]
+                if entries:
+                    return entries
+            elif isinstance(secret_users, dict):
+                return _parse_users_toml_data({"users": secret_users})
+    except Exception:
+        pass
+
+    for path in (USERS_REGISTRY_FILE, USERS_REGISTRY_EXAMPLE):
+        if path.exists():
+            entries = _parse_users_toml_data(_read_toml(path))
+            if entries:
+                return entries
+
+    return [
+        {
+            "participant_id": participant_id,
+            "username": "" if participant_id != ADMIN_USER_ID else ADMIN_USERNAME,
+            "first_signed_in_at": "",
+        }
+        for participant_id in DEFAULT_USER_IDS + [ADMIN_USER_ID]
+    ]
+
+
+def _load_users_state_entries():
+    if not USERS_STATE_FILE.exists():
+        return {}
+
+    data = _read_toml(USERS_STATE_FILE)
+    state = {}
+    for participant_id, value in data.items():
+        if not isinstance(value, dict):
+            continue
+        normalized = _normalize_user_entry(
+            {
+                "participant_id": participant_id,
+                "username": value.get("username", ""),
+                "first_signed_in_at": value.get("first_signed_in_at", ""),
+            }
+        )
+        if normalized:
+            state[normalized["participant_id"]] = normalized
+    return state
+
+
+def _save_users_state(state):
+    lines = []
+    for participant_id in sorted(state):
+        entry = state[participant_id]
+        username = entry.get("username", "").strip()
+        first_signed_in_at = entry.get("first_signed_in_at", "").strip()
+        if not username and not first_signed_in_at:
+            continue
+        lines.append(f"[{participant_id}]")
+        if username:
+            lines.append(f'username = "{_toml_escape(username)}"')
+        if first_signed_in_at:
+            lines.append(f'first_signed_in_at = "{_toml_escape(first_signed_in_at)}"')
+        lines.append("")
+    USERS_STATE_FILE.write_text("\n".join(lines).strip() + ("\n" if lines else ""), encoding="utf-8")
+
+
+def _write_users_registry_example():
+    example = """# Copy to data/.users.toml for local dev, or paste the users array into
+# Streamlit Cloud secrets (Settings -> Secrets).
+
+users = [
+    { participant_id = "P001", username = "MJ" },
+    { participant_id = "P002", username = "PS2" },
+    { participant_id = "YWNWA", username = "" },
+    { participant_id = "ADMIN01", username = "Admin" },
+]
+"""
+    USERS_REGISTRY_EXAMPLE.write_text(example, encoding="utf-8")
+
+
 def load_users():
-    df = pd.read_csv(USERS_FILE)
+    registry = _load_users_registry_entries()
+    state = _load_users_state_entries()
+    rows = []
+    for entry in registry:
+        participant_id = entry["participant_id"]
+        merged = {
+            "participant_id": participant_id,
+            "username": entry.get("username", ""),
+            "first_signed_in_at": entry.get("first_signed_in_at", ""),
+        }
+        if participant_id in state:
+            if state[participant_id].get("username"):
+                merged["username"] = state[participant_id]["username"]
+            if state[participant_id].get("first_signed_in_at"):
+                merged["first_signed_in_at"] = state[participant_id]["first_signed_in_at"]
+        rows.append(merged)
+
+    df = pd.DataFrame(rows)
     df["participant_id"] = df["participant_id"].astype(str).str.upper()
     df["username"] = df["username"].fillna("").astype(str).str.strip()
-    if "first_signed_in_at" not in df.columns:
-        df["first_signed_in_at"] = ""
-    df["first_signed_in_at"] = df["first_signed_in_at"].fillna("").astype(str)
+    df["first_signed_in_at"] = df["first_signed_in_at"].fillna("").astype(str).str.strip()
     return df
 
 
@@ -430,20 +581,31 @@ def save_scores(df):
 
 
 def save_user_name(participant_id, username):
-    df = load_users()
     participant_id = participant_id.strip().upper()
-    if participant_id in df["participant_id"].values:
-        existing = str(df.loc[df["participant_id"] == participant_id, "username"].iloc[0]).strip()
-        if existing:
-            return False
-        now = datetime.now().isoformat(sep=" ", timespec="seconds")
-        df.loc[df["participant_id"] == participant_id, "username"] = username.strip()
-        if "first_signed_in_at" not in df.columns:
-            df["first_signed_in_at"] = ""
-        df.loc[df["participant_id"] == participant_id, "first_signed_in_at"] = now
-        df.to_csv(USERS_FILE, index=False)
-        return True
-    return False
+    registry_ids = {
+        entry["participant_id"] for entry in _load_users_registry_entries()
+    }
+    if participant_id not in registry_ids:
+        return False
+
+    users = load_users()
+    existing = ""
+    if participant_id in users["participant_id"].values:
+        existing = str(
+            users.loc[users["participant_id"] == participant_id, "username"].iloc[0]
+        ).strip()
+    if existing:
+        return False
+
+    now = datetime.now().isoformat(sep=" ", timespec="seconds")
+    state = _load_users_state_entries()
+    state[participant_id] = {
+        "participant_id": participant_id,
+        "username": username.strip(),
+        "first_signed_in_at": now,
+    }
+    _save_users_state(state)
+    return True
 
 
 def get_prediction_key(score_a, score_b):
