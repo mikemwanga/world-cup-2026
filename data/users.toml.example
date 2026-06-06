@@ -1,0 +1,9 @@
+# Copy to data/.users.toml for local development.
+# For Streamlit Cloud, paste the users array into app secrets (Settings -> Secrets).
+
+users = [
+    { participant_id = "P001", username = "MJ" },
+    { participant_id = "P002", username = "PS2" },
+    { participant_id = "YWNWA", username = "" },
+    { participant_id = "ADMIN01", username = "Admin" },
+]

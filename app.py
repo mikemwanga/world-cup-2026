@@ -164,10 +164,16 @@ def _short_group_name(group):
     return group.replace("Group ", "Group  ")
 
 
-def _parse_score(text, team_name):
+def _parse_score(text, team_name, *, required=False):
     cleaned = str(text).strip()
     if cleaned == "":
+        if required:
+            raise ValueError(f"Enter a score for {team_name}.")
         return 0
+    if len(cleaned) > 1 and cleaned[0] == "0":
+        raise ValueError(
+            f"Enter {team_name} score without leading zeros (e.g. use 1, not 01)."
+        )
     if not cleaned.isdigit():
         raise ValueError(f"Enter a whole number for {team_name}.")
     value = int(cleaned)
@@ -194,8 +200,9 @@ def render_match_card(
         (predictions["participant_id"] == participant_id)
         & (predictions["match_id"] == match_id)
     ]
-    default_a = int(user_preds["predicted_score_a"].iloc[0]) if not user_preds.empty else 0
-    default_b = int(user_preds["predicted_score_b"].iloc[0]) if not user_preds.empty else 0
+    has_saved_pick = not user_preds.empty
+    saved_a = int(user_preds["predicted_score_a"].iloc[0]) if has_saved_pick else None
+    saved_b = int(user_preds["predicted_score_b"].iloc[0]) if has_saved_pick else None
     deadline_passed = match["prediction_deadline"] < now
     team_a = display_team_name(match["team_a"])
     team_b = display_team_name(match["team_b"])
@@ -210,19 +217,24 @@ def render_match_card(
             unsafe_allow_html=True,
         )
         st.caption(f"Kick-off: {match_time} · Deadline: {deadline_time}")
-        st.markdown(f"**Your pick:** {default_a} – {default_b}")
+        if has_saved_pick:
+            st.markdown(f"**Your pick:** {saved_a} – {saved_b}")
+        else:
+            st.markdown("**Your pick:** Not saved yet")
         if deadline_passed:
             st.warning("Deadline passed", icon="⏰")
 
         left, right = st.columns(2)
         score_a_text = left.text_input(
             team_a,
-            value=str(default_a),
+            value=str(saved_a) if has_saved_pick else "",
+            placeholder="0",
             key=f"score_a_{key_prefix}{match_id}",
         )
         score_b_text = right.text_input(
             team_b,
-            value=str(default_b),
+            value=str(saved_b) if has_saved_pick else "",
+            placeholder="0",
             key=f"score_b_{key_prefix}{match_id}",
         )
 
@@ -232,8 +244,8 @@ def render_match_card(
                 st.error("Prediction deadline has passed.")
             else:
                 try:
-                    score_a = _parse_score(score_a_text, team_a)
-                    score_b = _parse_score(score_b_text, team_b)
+                    score_a = _parse_score(score_a_text, team_a, required=True)
+                    score_b = _parse_score(score_b_text, team_b, required=True)
                 except ValueError as exc:
                     st.error(str(exc))
                 else:
@@ -701,7 +713,7 @@ if not history:
     st.info("No predictions saved yet. Make picks in Upcoming matches above.")
 else:
     history_df = pd.DataFrame(history)
-    history_df = history_df[["Match", "Result", "Your prediction", "Win", "Draw", "Goals", "Points"]]
+    history_df = history_df[["Match", "Result", "My prediction", "Win", "Draw", "Goals", "Points"]]
     display_table(history_df)
 
 st.divider()

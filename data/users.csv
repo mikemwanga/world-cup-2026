@@ -1,5 +1,12 @@
-participant_id,username
-P001,MJ
-P002,PS2
-YWNWA,
-ADMIN01,Admin
+participant_id,username,first_signed_in_at
+P001,MJ,2026-06-06 19:16:01
+P002,,
+P003,,
+P004,,
+P005,,
+P006,,
+P007,,
+P008,,
+P009,,
+P010,,
+ADMIN01,Admin,
