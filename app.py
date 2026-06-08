@@ -450,7 +450,7 @@ def display_leaderboard(leaderboard, is_admin):
 
 
 icon_col,title_col = st.columns([1, 10])
-title_col.markdown("# IVI 2026 World Cup Predictions")
+title_col.markdown("# 2026 World Cup Fun Play")
 icon_col.image(page_icon, width='content')
 #balcol.image(ballicon, width='stretch')
 
