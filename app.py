@@ -89,6 +89,39 @@ st.markdown(
             margin-top: 0.25rem;
             margin-bottom: 0.25rem;
         }
+        .welcome-banner {
+            background: linear-gradient(135deg, #0d47a1 0%, #1565c0 45%, #2e7d32 100%);
+            color: #ffffff;
+            border-radius: 12px;
+            padding: 1.1rem 1.4rem;
+            margin: 0.5rem 0 1rem 0;
+            box-shadow: 0 4px 14px rgba(13, 71, 161, 0.25);
+        }
+        .welcome-banner .welcome-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin: 0 0 0.45rem 0;
+            line-height: 1.25;
+        }
+        .welcome-banner .welcome-body {
+            font-size: 1rem;
+            margin: 0 0 0.35rem 0;
+            line-height: 1.4;
+        }
+        .welcome-banner .welcome-warning {
+            font-size: 0.95rem;
+            margin: 0;
+            line-height: 1.4;
+            font-style: italic;
+        }
+        @media (max-width: 620px) {
+            .welcome-banner .welcome-title {
+                font-size: 1.1rem;
+            }
+            .welcome-banner .welcome-body {
+                font-size: 0.9rem;
+            }
+        }
         div[data-testid="stExpander"] details summary p {
             font-weight: 600;
         }
@@ -133,6 +166,19 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+def render_welcome_banner():
+    st.markdown(
+        """
+        <div class="welcome-banner">
+            <p class="welcome-title">⚽🦠 Welcome to the IVI World Cup 2026 Prediction Game!</p>
+            <p class="welcome-body">Time to go viral — in the fun way. Pick your scores, infect the leaderboard, and build herd immunity against defeat.</p>
+            <p class="welcome-warning">⚠️ Warning: finishing in the bottom half is highly contagious… symptoms include mandatory BBQ Organiser duty. 🍔🔥</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 GROUP_ROWS = [
     ["Group A", "Group B", "Group C", "Group D"],
@@ -524,6 +570,7 @@ if auto_login_id and not st.session_state.logged_in:
             st.rerun()
 
 if not st.session_state.logged_in:
+    render_welcome_banner()
     st.markdown("### Participant login")
     st.info(
         "Enter the participant ID **assigned to you by the admin**. On your first login "
@@ -623,6 +670,8 @@ if header_col2.button("Logout", key="logout_button"):
     st.rerun()
 
 st.divider()
+
+render_welcome_banner()
 
 if is_admin:
     render_admin_panel(matches, predictions)
