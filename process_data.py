@@ -1,5 +1,5 @@
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 
@@ -27,40 +27,6 @@ PREDICTIONS_CSV = DATA_DIR / "predictions.csv"
 PREDICTIONS_XLSX = DATA_DIR / "predictions.xlsx"
 ADMIN_USER_ID = "ADMIN01"
 ADMIN_USERNAME = "Admin"
-
-DEMO_ROUND = "Round0"
-DEMO_KICKOFF_MINUTES = 20
-DEMO_DEADLINE_MINUTES = 10
-DEMO_MATCH_DEFINITIONS = [
-    {
-        "match_id": 9001,
-        "group": "Group A",
-        "team_a": "Demo Lions",
-        "team_b": "Demo Tigers",
-        "location": "Demo Stadium",
-    },
-    {
-        "match_id": 9002,
-        "group": "Group A",
-        "team_a": "Demo Eagles",
-        "team_b": "Demo Bears",
-        "location": "Demo Stadium",
-    },
-    {
-        "match_id": 9003,
-        "group": "Group B",
-        "team_a": "Demo Sharks",
-        "team_b": "Demo Wolves",
-        "location": "Demo Arena",
-    },
-    {
-        "match_id": 9004,
-        "group": "Group B",
-        "team_a": "Demo Hawks",
-        "team_b": "Demo Foxes",
-        "location": "Demo Arena",
-    },
-]
 
 DISPLAY_TEAM_ALIASES = {
     "Bosnia and Herzegovina": "Bosnia-Hzgv",
@@ -283,32 +249,6 @@ def _normalize_matches_df(df):
     return df
 
 
-def build_demo_matches(now=None):
-    if now is None:
-        now = datetime.now()
-    kickoff = now + timedelta(minutes=DEMO_KICKOFF_MINUTES)
-    deadline = now + timedelta(minutes=DEMO_DEADLINE_MINUTES)
-    rows = []
-    for match_def in DEMO_MATCH_DEFINITIONS:
-        rows.append(
-            {
-                "match_id": match_def["match_id"],
-                "round_number": DEMO_ROUND,
-                "match_date": kickoff,
-                "prediction_deadline": deadline,
-                "location": match_def["location"],
-                "team_a": match_def["team_a"],
-                "team_b": match_def["team_b"],
-                "group": match_def["group"],
-                "result": "",
-                "actual_score_a": pd.NA,
-                "actual_score_b": pd.NA,
-                "match_label": f"{match_def['team_a']} vs {match_def['team_b']}",
-            }
-        )
-    return pd.DataFrame(rows)
-
-
 def load_matches():
     source_file = MATCHES_FILE
     if DATA_FIFA_FILE.exists():
@@ -318,8 +258,6 @@ def load_matches():
 
     df = pd.read_csv(source_file)
     df = _normalize_matches_df(df)
-    demo_df = build_demo_matches()
-    df = pd.concat([demo_df, df], ignore_index=True)
 
     if SCORES_FILE.exists():
         scores = load_scores()
@@ -580,32 +518,55 @@ def save_scores(df):
     df.to_csv(SCORES_FILE, index=False)
 
 
-def save_user_name(participant_id, username):
+def lock_user_on_login(participant_id, username=""):
+    """Persist and lock username on login. Returns False if ID is already taken."""
     participant_id = participant_id.strip().upper()
-    registry_ids = {
-        entry["participant_id"] for entry in _load_users_registry_entries()
-    }
+    username = str(username).strip()
+    registry_ids = {entry["participant_id"] for entry in _load_users_registry_entries()}
     if participant_id not in registry_ids:
         return False
 
-    users = load_users()
-    existing = ""
-    if participant_id in users["participant_id"].values:
-        existing = str(
-            users.loc[users["participant_id"] == participant_id, "username"].iloc[0]
-        ).strip()
-    if existing:
+    registry_by_id = {
+        entry["participant_id"]: entry for entry in _load_users_registry_entries()
+    }
+    registry_username = registry_by_id[participant_id].get("username", "").strip()
+
+    state = _load_users_state_entries()
+    current = state.get(
+        participant_id,
+        {"participant_id": participant_id, "username": "", "first_signed_in_at": ""},
+    )
+    locked_username = current.get("username", "").strip() or registry_username
+
+    if username:
+        if locked_username and locked_username.lower() != username.lower():
+            return False
+        if not locked_username:
+            locked_username = username
+    elif not locked_username:
         return False
 
-    now = datetime.now().isoformat(sep=" ", timespec="seconds")
-    state = _load_users_state_entries()
-    state[participant_id] = {
-        "participant_id": participant_id,
-        "username": username.strip(),
-        "first_signed_in_at": now,
-    }
+    if not current.get("first_signed_in_at", "").strip():
+        current["first_signed_in_at"] = datetime.now().isoformat(sep=" ", timespec="seconds")
+
+    current["participant_id"] = participant_id
+    current["username"] = locked_username
+    state[participant_id] = current
     _save_users_state(state)
     return True
+
+
+def save_user_name(participant_id, username):
+    users = load_users()
+    participant_id = participant_id.strip().upper()
+    if participant_id not in users["participant_id"].values:
+        return False
+    existing = str(
+        users.loc[users["participant_id"] == participant_id, "username"].iloc[0]
+    ).strip()
+    if existing:
+        return False
+    return lock_user_on_login(participant_id, username.strip())
 
 
 def get_prediction_key(score_a, score_b):

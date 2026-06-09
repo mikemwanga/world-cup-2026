@@ -21,8 +21,8 @@ streamlit run app.py
 
 - `data/users.toml.example` — template for participant IDs and usernames.
 - `data/.users.toml` — local user registry (gitignored; copy from the example).
-- `data/users_state.toml` — first-login usernames and sign-in times (gitignored).
-- `data/matches.csv` stores demo matches and any actual results.
+- `data/users_state.toml` — locked usernames and first sign-in times after login (gitignored, persists locally).
+- `data/matches.csv` stores match schedule and any actual results.
 - `data/predictions.xlsx` stores saved predictions.
 
 ### User registry (TOML / Streamlit secrets)

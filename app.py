@@ -9,7 +9,7 @@ from process_data import (
     load_predictions,
     load_scores,
     add_or_update_prediction,
-    save_user_name,
+    lock_user_on_login,
     save_scores,
     build_leaderboard,
     build_admin_user_summary,
@@ -18,9 +18,6 @@ from process_data import (
     filter_actual_predictions,
     display_team_name,
     display_match_label,
-    DEMO_ROUND,
-    DEMO_KICKOFF_MINUTES,
-    DEMO_DEADLINE_MINUTES,
 )
 from scoring_rules import SCORING_DESCRIPTION
 
@@ -140,22 +137,15 @@ GROUP_ROWS = [
     ["Group E", "Group F", "Group G", "Group H"],
     ["Group I", "Group J", "Group K", "Group L"],
 ]
-DEMO_GROUP_ROWS = [["Group A", "Group B"]]
-
-
 def _round_sort_key(round_number):
     round_key = str(round_number)
-    if round_key == DEMO_ROUND:
-        return (0, 0)
     if round_key.isdigit():
-        return (1, int(round_key))
-    return (2, round_key)
+        return (0, int(round_key))
+    return (1, round_key)
 
 
 def _round_label(round_number):
     round_key = str(round_number)
-    if round_key == DEMO_ROUND:
-        return DEMO_ROUND
     if round_key.isdigit():
         return f"Round {int(round_key)}"
     return round_key
@@ -475,11 +465,12 @@ if auto_login_id and not st.session_state.logged_in:
     if not user_match.empty:
         existing_name = user_match["username"].iloc[0]
         if existing_name and existing_name != "":
-            st.session_state.logged_in = True
-            st.session_state.participant_id = auto_login_id
-            st.session_state.username = existing_name
-            st.session_state.is_admin = auto_login_id == "ADMIN01"
-            st.rerun()
+            if lock_user_on_login(auto_login_id, existing_name):
+                st.session_state.logged_in = True
+                st.session_state.participant_id = auto_login_id
+                st.session_state.username = existing_name
+                st.session_state.is_admin = auto_login_id == "ADMIN01"
+                st.rerun()
 
 if not st.session_state.logged_in:
     st.markdown("### Participant login")
@@ -522,19 +513,27 @@ if not st.session_state.logged_in:
                 if existing_name == "" and username.strip() == "":
                     st.error("❌ First login requires a username.")
                 else:
-                    if existing_name == "" and username.strip() != "" and normalized_id != "ADMIN01":
-                        save_user_name(normalized_id, username.strip())
-                        existing_name = username.strip()
-                    
-                    st.session_state.logged_in = True
-                    st.session_state.participant_id = normalized_id
-                    st.session_state.username = existing_name
-                    st.session_state.is_admin = normalized_id == "ADMIN01"
-                    
-                    if stay_logged_in:
-                        st.query_params["id"] = normalized_id
-                    
-                    st.rerun()
+                    login_username = existing_name if existing_name else username.strip()
+                    if normalized_id == "ADMIN01":
+                        login_username = existing_name or "Admin"
+                    if not lock_user_on_login(normalized_id, login_username):
+                        st.error(
+                            "❌ This participant ID is already registered to another user."
+                        )
+                    else:
+                        users = load_users()
+                        locked_name = users.loc[
+                            users["participant_id"] == normalized_id, "username"
+                        ].iloc[0]
+                        st.session_state.logged_in = True
+                        st.session_state.participant_id = normalized_id
+                        st.session_state.username = locked_name
+                        st.session_state.is_admin = normalized_id == "ADMIN01"
+
+                        if stay_logged_in:
+                            st.query_params["id"] = normalized_id
+
+                        st.rerun()
     
     st.markdown(
         "- Use your assigned participant ID (e.g., `P001`, `P002`, ..., `P010`).\n"
@@ -594,21 +593,13 @@ else:
         round_matches = upcoming[upcoming["round_number"].astype(str) == round_key]
         match_count = len(round_matches)
         expander_label = f"{_round_label(round_number)} — {match_count} matches"
-        is_demo_round = round_key == DEMO_ROUND
-        with st.expander(expander_label, expanded=is_demo_round):
-            if is_demo_round:
-                st.caption(
-                    f"Demo matches — predict within {DEMO_DEADLINE_MINUTES} minutes; "
-                    f"kick-off in ~{DEMO_KICKOFF_MINUTES} minutes. "
-                    "Results appear in the same tables once ADMIN01 enters scores."
-                )
+        with st.expander(expander_label, expanded=False):
             render_round_grid(
                 round_matches,
                 participant_id,
                 username,
                 predictions,
                 now,
-                group_rows=DEMO_GROUP_ROWS if is_demo_round else GROUP_ROWS,
             )
 
 st.divider()
