@@ -16,30 +16,6 @@ cd streamlit-app
 python3 -m pip install -r requirements.txt
 streamlit run app.py
 ```
-
-## Data files
-
-- `data/users.toml.example` — template for participant IDs and usernames.
-- `data/.users.toml` — local user registry (gitignored; copy from the example).
-- `data/users_state.toml` — locked usernames and first sign-in times after login (gitignored, persists locally).
-- `data/matches.csv` stores match schedule and any actual results.
-- `data/predictions.xlsx` stores saved predictions.
-
-### User registry (TOML / Streamlit secrets)
-
-For deployment, add this to **Streamlit Cloud secrets** (not GitHub):
-
-```toml
-users = [
-    { participant_id = "P001", username = "MJ" },
-    { participant_id = "P002", username = "PS2" },
-    { participant_id = "YWNWA", username = "" },
-    { participant_id = "ADMIN01", username = "Admin" },
-]
-```
-
-Locally, copy `data/users.toml.example` to `data/.users.toml`, or use `.streamlit/secrets.toml` with the same `users` array.
-
 ## Notes
 
 - Default participant IDs: P001..P010.
