@@ -9,7 +9,9 @@ from process_data import (
     load_predictions,
     load_scores,
     add_or_update_prediction,
-    lock_user_on_login,
+    assign_login_id,
+    set_username,
+    users_to_toml,
     save_scores,
     build_leaderboard,
     build_admin_user_summary,
@@ -325,6 +327,43 @@ def _admin_match_select_options(matches):
 def render_admin_panel(matches, predictions):
     st.subheader("Admin control & view")
 
+    st.markdown("**Assign a login ID**")
+    st.caption(
+        "Create a participant ID and share it with the person. "
+        "They set their own username on first login."
+    )
+    assign_col1, assign_col2 = st.columns([2, 1])
+    desired_id = assign_col1.text_input(
+        "New ID (leave blank to auto-generate)",
+        key="assign_id_input",
+        placeholder="e.g., LAB07 — or leave blank",
+    )
+    if assign_col2.button("Assign ID", key="assign_id_button"):
+        ok, msg, new_id = assign_login_id(desired_id)
+        if ok:
+            st.success(f"{msg} Share this ID with the participant: **{new_id}**")
+        else:
+            st.error(f"❌ {msg}")
+
+    roster = load_users()
+    roster = roster[roster["participant_id"] != "ADMIN01"].copy()
+    if roster.empty:
+        st.caption("No login IDs assigned yet.")
+    else:
+        roster["Status"] = roster["username"].apply(
+            lambda u: "Active" if str(u).strip() else "Pending first login"
+        )
+        roster = roster.rename(
+            columns={
+                "participant_id": "Participant ID",
+                "username": "Username",
+                "first_signed_in_at": "First signed in",
+            }
+        )
+        display_table(roster[["Participant ID", "Username", "Status", "First signed in"]])
+
+    st.divider()
+
     summary = build_admin_user_summary(predictions, matches)
     st.markdown("**All signed-in participants**")
     if summary.empty:
@@ -412,6 +451,14 @@ def render_admin_panel(matches, predictions):
                     st.success(f"Updated scores for match ID {selected_match}.")
                     st.rerun()
 
+    st.divider()
+    st.markdown("**Deployment secret (.toml)**")
+    st.caption(
+        "Copy this into your Streamlit Cloud app secrets (Settings → Secrets) so the "
+        "assigned IDs and usernames persist after deployment."
+    )
+    st.code(users_to_toml(), language="toml")
+
 
 def display_table(df):
     st.dataframe(df, width="stretch", height="content", hide_index=True)
@@ -461,92 +508,100 @@ st.markdown(
 # Check for auto-login via URL parameter
 auto_login_id = st.query_params.get("id", "").strip().upper()
 if auto_login_id and not st.session_state.logged_in:
-    user_match = users[users["participant_id"] == auto_login_id]
-    if not user_match.empty:
-        existing_name = user_match["username"].iloc[0]
-        if existing_name and existing_name != "":
-            if lock_user_on_login(auto_login_id, existing_name):
-                st.session_state.logged_in = True
-                st.session_state.participant_id = auto_login_id
-                st.session_state.username = existing_name
-                st.session_state.is_admin = auto_login_id == "ADMIN01"
-                st.rerun()
+    if auto_login_id == "ADMIN01":
+        st.session_state.logged_in = True
+        st.session_state.participant_id = auto_login_id
+        st.session_state.username = "Admin"
+        st.session_state.is_admin = True
+        st.rerun()
+    else:
+        user_match = users[users["participant_id"] == auto_login_id]
+        if not user_match.empty and str(user_match["username"].iloc[0]).strip() != "":
+            st.session_state.logged_in = True
+            st.session_state.participant_id = auto_login_id
+            st.session_state.username = str(user_match["username"].iloc[0]).strip()
+            st.session_state.is_admin = False
+            st.rerun()
 
 if not st.session_state.logged_in:
     st.markdown("### Participant login")
+    st.info(
+        "Enter the participant ID **assigned to you by the admin**. On your first login "
+        "you'll choose a username (shown on the leaderboard). "
+        "Don't have an ID yet? Ask the admin to assign you one."
+    )
+
     login_col1, login_col2 = st.columns([2, 3])
-    participant_id = login_col1.text_input("Participant ID", max_chars=8, key="login_id", placeholder="e.g., P001")
+    participant_id = login_col1.text_input(
+        "Participant ID", max_chars=12, key="login_id", placeholder="assigned by admin"
+    )
     normalized_id = participant_id.strip().upper()
+
     user_match = users[users["participant_id"] == normalized_id] if normalized_id else pd.DataFrame()
-    needs_username = not user_match.empty and user_match["username"].iloc[0] == "" if not user_match.empty else False
+    has_id = not user_match.empty
+    existing_name = str(user_match["username"].iloc[0]).strip() if has_id else ""
+    needs_username = has_id and existing_name == "" and normalized_id != "ADMIN01"
 
     if normalized_id == "ADMIN01":
-        login_col2.markdown(
-            "**Admin login.** Just enter `ADMIN01` to continue."
-        )
+        login_col2.markdown("**Admin login.** Enter `ADMIN01` and click Login.")
         username = "Admin"
     elif needs_username:
         username = login_col2.text_input(
-            "Choose a username (this can only be set once)", key="login_name"
+            "Choose a username (set once, shown on leaderboard)",
+            key="login_name",
+            max_chars=20,
+            placeholder="e.g., Goal Machine",
         )
+    elif has_id:
+        login_col2.markdown(f"**Welcome back, {existing_name}.** Click Login to continue.")
+        username = existing_name
     else:
-        login_col2.markdown(
-            "**Username is already set.** Just enter your Participant ID to login."
-        )
+        login_col2.markdown("Enter your assigned ID to continue.")
         username = ""
-    
+
     button_col1, button_col2 = st.columns([1, 1])
-    login_clicked = button_col1.button("Login", key="login_button")
+    login_clicked = button_col1.button("Login", key="login_button", type="primary")
     stay_logged_in = button_col2.checkbox("Remember me (bookmark this link)", key="remember_me")
 
     if login_clicked:
         if normalized_id == "":
             st.error("Enter your participant ID.")
+        elif normalized_id == "ADMIN01":
+            st.session_state.logged_in = True
+            st.session_state.participant_id = "ADMIN01"
+            st.session_state.username = "Admin"
+            st.session_state.is_admin = True
+            if stay_logged_in:
+                st.query_params["id"] = "ADMIN01"
+            st.rerun()
+        elif not has_id:
+            st.error(
+                "❌ This ID has not been assigned. Ask the admin to assign you a login ID."
+            )
         else:
-            user_match = users[users["participant_id"] == normalized_id]
-            if user_match.empty:
-                st.error(
-                    "❌ Participant ID not found. Ask your admin for a valid ID."
-                )
-            else:
-                existing_name = user_match["username"].iloc[0]
-                if existing_name == "" and username.strip() == "":
-                    st.error("❌ First login requires a username.")
+            proceed = True
+            login_name = existing_name
+            if existing_name == "":
+                ok, msg = set_username(normalized_id, username.strip())
+                if not ok:
+                    st.error(f"❌ {msg}")
+                    proceed = False
                 else:
-                    login_username = existing_name if existing_name else username.strip()
-                    if normalized_id == "ADMIN01":
-                        login_username = existing_name or "Admin"
-                    if not lock_user_on_login(normalized_id, login_username):
-                        st.error(
-                            "❌ This participant ID is already registered to another user."
-                        )
-                    else:
-                        users = load_users()
-                        locked_name = users.loc[
-                            users["participant_id"] == normalized_id, "username"
-                        ].iloc[0]
-                        st.session_state.logged_in = True
-                        st.session_state.participant_id = normalized_id
-                        st.session_state.username = locked_name
-                        st.session_state.is_admin = normalized_id == "ADMIN01"
+                    login_name = username.strip()
+            if proceed:
+                st.session_state.logged_in = True
+                st.session_state.participant_id = normalized_id
+                st.session_state.username = login_name
+                st.session_state.is_admin = False
+                if stay_logged_in:
+                    st.query_params["id"] = normalized_id
+                st.rerun()
 
-                        if stay_logged_in:
-                            st.query_params["id"] = normalized_id
-
-                        st.rerun()
-    
+    st.markdown("---")
     st.markdown(
-        "- Use your assigned participant ID (e.g., `P001`, `P002`, ..., `P010`).\n"
-        "- Username is only required on first login and cannot be changed later."
-    )
-    st.markdown(
-        "- Each ID can only be used by one person. Once you register, the ID is locked to you."
-    )
-    st.markdown(
-        "- Check **Remember me** to get a link you can bookmark for instant login."
-    )
-    st.info(
-        "❓ **First time?** Ask the admin for your participant ID."
+        "- Your participant **ID is assigned by the admin** and is private to you.\n"
+        "- You set your **username once** on first login; only the username is shown on the leaderboard.\n"
+        "- Check **Remember me** for a bookmarkable login link."
     )
     st.stop()
 

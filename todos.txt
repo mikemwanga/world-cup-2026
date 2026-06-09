@@ -1,63 +1,36 @@
-as a lab every football event we have a game prediction where participants send in there match predictions and gain points if correct. This is managed for a person who enteres the information on a excel spreadsheets and does the calculation. Predictions are sent to her via whatsap sms or can be entered into the excel by participants.
 
-The world cup is here and we will play again. Is there a way we can ,make this efficient and automated. We create a lite app or web platform where users can directly feed in there predictions from comfort of there phone/laptop. this shoud be accessible via an open web platform with no need for extreme high end hosting - potentially free web app. Of course users are restricted not to enter information for other users but can see their current predictions and scrores.
+#A review here to alter scoring matrix
+3 points (Exact prediction)
 
-I will prefer we make the app in streamlit using python for data processing and make the tables and figures.
+Award 3 points if:
 
-User should access the platform using hte link
+predicted home goals == actual home goals AND
+predicted away goals == actual away goals
+2 points (Correct winner + correct goal difference, but not exact score)
 
-Also due to user privacy, users need to access this platform with an assigned ID and not their personla emails. We can generate random 10 ids for the first 10 users and allow users to provide their usernames. Users will be assigned an ID once they first login in. Suggest how we control users not to predict for others.
+Award 2 points if:
 
-then landing page should have their userIDs here quickly show upcoming matches with prediction options. Predictions can only be teama or b win, or draw, and also goals scored. Also show date when the mathces will be played and dateline for making the predictions.
+predicted match outcome (win/draw/loss) matches actual outcome AND
+predicted goal difference equals actual goal difference AND
+score is NOT an exact match
+1 point (Correct winner only)
 
-Also show a section for previous predictions and scores for the those mathces. 
+Award 1 point if:
 
-The predictiosn are then recorded in an excel sheet in the backend. User scores is based on the accuracy of prediction. correct win/draw is 2 points, correct goals is 5 points. Wrong predictions is -1 points. If a user does not provide a prediction, nothing happens.
+predicted match outcome matches actual outcome AND
+goal difference is NOT equal OR score is not exact
+0 points (Incorrect outcome)
 
-Then show another section ranking scores for the users. 
+Award 0 points if:
 
-We need to make this as simple as possible and ease of usage without so much restrictions. 
-
-All the information should be on one page not multiple pages or tabs. Again keep it simple.
-
-For a start lets do a simple app and provide outline of how to get it running.
-Also make a demo match data and user data, once running I will create a dayaset for the mathces. But ypou can also check this on FIFA website and include as background data.
-
-
-############
-After review,
-add a buttom to select winning team, or draw in addition to already existing scores.
-
-One My previous predictions
-Add a columns with win/draw user predictions and goals preductions. values for this two columns will be tick if correct of x if wrong colored green and red respectively. Also another column for scores for that particular predictions.
+predicted outcome (win/draw/loss) does not match actual outcome
 
 
-##Review 3
+Review 2 on Loginin and assigning IDs
+Wrather than users to contact ADMIN, generate 15 random IDS and display them on the login page. Ask users to choose and ID 
+from the list and they will input their prefered username. Indicate that IDs are secret and unique. Also ensure 
+no similar usernames. Remember only username is displayed on the leaderboard. 
+Once an ID is selected, its dissappeared from the login page.
 
-Also I have adjusted users.csv file with userID and usernames assigned by admin. Once user logins for the first time that ID will no linger be used. Also allow autologin once user has aslready registered to avoid entering informatione very time. Users cannot login with already used USERID
-
-##Adjust3
-
-Allow the admin the add scores mannually to the a scores.csv. In the scores provide a column for match then column for teama and b goals and from this you determine win or draw and award scores to users. Lets demo this for a match ending in the next 15 minutes, say 13140HRS then I will add the scores and once I do the system updates the scores.
-
-Also adjust margins a little bit. Now the width is wide. And customize for use of the phone
-
-Regarding user logins, just use userID and no need to include username can only be entered once for the first login and cannot be changed again. So on the users csv, username column will be empty for userID and once admin assigns userID users select their own username and next login no need for username again
-
-I dont see any changes. SInce we are doing a demo, adjust match data and time to be 5 minutes from now today. Lets do just 3 matches in the matches.csv.
-Then once the time is over, check the scores, do this in 10 minutes and update.
-
-
-#Further adjustments
-For completed mathces, no need to display matchID. Display name of day too. Also add a column of how many users predicted and how many of those successfully predict correct scores. Remember correct scores can either be draw win or accuracy in goals. So if user preducts 1-1 means its a draw of score 1-1. while 1-3 means team b won with 3 goals so score for win and correct goals. others if goals are false, just score for win is awarded. Put this rules of assigning scores on afile for my use in that if I adjust you can diredctly reconfigure
-
-
-
-For my previous predictiosn tables, the win/draw column should be two and not one column. A colum for win a column for draw. and the check is a tick icon or X icon.
-
-
-I have provided a table with fixtures named "fifa-world-cup-2026-original.csv"
-Take note of the round number column. matches are played on rounds, 
-In each round as a drop down generate the fixtures by groups,then have groups as drop down and for each match in every group, allow the users to predict the matches as already established in the test code. Take not that the name columns for this new file do not march the test file matches.csv. Adjust the matches.csv file naming to be similar to avoid conflicts.
-The date format is day/month/year and time is 24 hrs system.
-
+From here we are reverting back to users.csv as previous. Once an ID is selected and username picked, thats it
+append in hte users.csv file and use this to link with user predictions.
