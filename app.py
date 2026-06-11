@@ -12,6 +12,7 @@ from process_data import (
     assign_login_id,
     set_username,
     users_to_toml,
+    backup_csv_contents,
     save_scores,
     build_leaderboard,
     build_admin_user_summary,
@@ -496,6 +497,36 @@ def render_admin_panel(matches, predictions):
                     save_scores(scores)
                     st.success(f"Updated scores for match ID {selected_match}.")
                     st.rerun()
+
+    st.divider()
+    st.markdown("**Backup data**")
+    st.caption(
+        "Download the three live data files. Save them locally so you can restore "
+        "users, predictions, and scores after a Streamlit Cloud redeploy."
+    )
+    backups = backup_csv_contents()
+    dl_col1, dl_col2, dl_col3 = st.columns(3)
+    dl_col1.download_button(
+        "Download users.csv",
+        data=backups["users.csv"],
+        file_name="users.csv",
+        mime="text/csv",
+        key="backup_users",
+    )
+    dl_col2.download_button(
+        "Download predictions.csv",
+        data=backups["predictions.csv"],
+        file_name="predictions.csv",
+        mime="text/csv",
+        key="backup_predictions",
+    )
+    dl_col3.download_button(
+        "Download scores.csv",
+        data=backups["scores.csv"],
+        file_name="scores.csv",
+        mime="text/csv",
+        key="backup_scores",
+    )
 
     st.divider()
     st.markdown("**Deployment secret (.toml)**")

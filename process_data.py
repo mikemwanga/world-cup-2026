@@ -508,6 +508,15 @@ def save_scores(df):
     df.to_csv(SCORES_FILE, index=False)
 
 
+def backup_csv_contents():
+    """Return live CSV snapshots for admin backup downloads."""
+    return {
+        "users.csv": load_users().to_csv(index=False),
+        "predictions.csv": load_predictions().to_csv(index=False),
+        "scores.csv": load_scores().to_csv(index=False),
+    }
+
+
 def get_prediction_key(score_a, score_b):
     if int(score_a) > int(score_b):
         return "A"
