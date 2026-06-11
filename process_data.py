@@ -222,10 +222,10 @@ def _normalize_matches_df(df):
         raise ValueError("Match file must include a date column.")
 
     if "prediction_deadline" not in df.columns:
-        df["prediction_deadline"] = df["match_date"] - pd.Timedelta(hours=1)
+        df["prediction_deadline"] = df["match_date"] - pd.Timedelta(minutes=10)
     else:
         df["prediction_deadline"] = pd.to_datetime(df["prediction_deadline"], dayfirst=True, errors="coerce")
-        df["prediction_deadline"] = df["prediction_deadline"].fillna(df["match_date"] - pd.Timedelta(hours=1))
+        df["prediction_deadline"] = df["prediction_deadline"].fillna(df["match_date"] - pd.Timedelta(minutes=10))
 
     # Preserve round labels (they may be numeric like 1,2,3 or text like 'Round of 32')
     if "round_number" not in df.columns:
