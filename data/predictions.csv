@@ -1,1 +1,163 @@
 participant_id,username,match_id,match_label,predicted_score_a,predicted_score_b,predicted_outcome,saved_at
+P-0143S,PhyGoals,1,Mexico vs South Africa,2,0,A,2026-06-11 17:34:59
+P-0420Q,Jim Knopf,1,Mexico vs South Africa,2,1,A,2026-06-11 17:53:29
+P-0292M,Gfehlhund,1,Mexico vs South Africa,2,0,A,2026-06-11 17:53:18
+VSV,Pipistrellus,1,Mexico vs South Africa,3,1,A,2026-06-11 18:00:39
+VSV,Pipistrellus,2,Korea Republic vs Czechia,0,3,B,2026-06-11 18:00:55
+VSV,Pipistrellus,3,Canada vs Bosnia and Herzegovina,0,2,B,2026-06-11 18:01:02
+VSV,Pipistrellus,8,Qatar vs Switzerland,0,2,B,2026-06-11 18:01:10
+P-0433Q,PintOfNoReturn,1,Mexico vs South Africa,2,1,A,2026-06-11 18:04:26
+P-0433Q,PintOfNoReturn,2,Korea Republic vs Czechia,0,2,B,2026-06-11 18:04:47
+P-0433Q,PintOfNoReturn,3,Canada vs Bosnia and Herzegovina,1,0,A,2026-06-11 18:04:58
+P-0475R,MERSmerized,1,Mexico vs South Africa,2,0,A,2026-06-11 18:12:29
+P-0475R,MERSmerized,2,Korea Republic vs Czechia,1,1,Draw,2026-06-11 18:12:37
+P-0475R,MERSmerized,3,Canada vs Bosnia and Herzegovina,1,0,A,2026-06-11 18:06:43
+SIMO,Zidane Headbutt,1,Mexico vs South Africa,2,1,A,2026-06-11 19:03:01
+SIMO,Zidane Headbutt,3,Canada vs Bosnia and Herzegovina,1,1,Draw,2026-06-11 18:14:38
+P-X943D,FC FlipKick,1,Mexico vs South Africa,2,0,A,2026-06-11 18:18:12
+P-X943D,FC FlipKick,2,Korea Republic vs Czechia,0,1,B,2026-06-11 18:18:20
+P-X943D,FC FlipKick,3,Canada vs Bosnia and Herzegovina,3,0,A,2026-06-11 18:18:49
+P-X943D,FC FlipKick,8,Qatar vs Switzerland,0,2,B,2026-06-11 18:19:16
+P-X943D,FC FlipKick,7,Brazil vs Morocco,1,1,Draw,2026-06-11 18:19:40
+SIMO,Zidane Headbutt,2,Korea Republic vs Czechia,1,1,Draw,2026-06-11 18:28:20
+P-0143S,PhyGoals,2,Korea Republic vs Czechia,0,2,B,2026-06-11 22:11:42
+P-J910K,Kaspeshio,1,Mexico vs South Africa,2,1,A,2026-06-11 18:34:59
+P-J910K,Kaspeshio,2,Korea Republic vs Czechia,3,2,A,2026-06-11 18:35:15
+P-0292M,Gfehlhund,3,Canada vs Bosnia and Herzegovina,2,0,A,2026-06-11 18:42:28
+P-0292M,Gfehlhund,8,Qatar vs Switzerland,1,3,B,2026-06-11 18:42:39
+P-0292M,Gfehlhund,7,Brazil vs Morocco,3,1,A,2026-06-11 18:42:52
+P-0292M,Gfehlhund,5,Haiti vs Scotland,0,2,B,2026-06-11 18:43:08
+P-0292M,Gfehlhund,4,USA vs Paraguay,2,1,A,2026-06-11 18:43:21
+P-0292M,Gfehlhund,6,Australia vs Türkiye,2,2,Draw,2026-06-11 18:43:36
+P-0292M,Gfehlhund,2,Korea Republic vs Czechia,1,2,B,2026-06-11 18:44:02
+P-X943D,FC FlipKick,5,Haiti vs Scotland,0,1,B,2026-06-11 18:51:06
+P-X943D,FC FlipKick,6,Australia vs Türkiye,0,0,Draw,2026-06-11 18:51:31
+P-X943D,FC FlipKick,4,USA vs Paraguay,0,0,Draw,2026-06-11 18:51:59
+P-0332C,YB Fan,1,Mexico vs South Africa,3,1,A,2026-06-11 19:05:19
+P-0332C,YB Fan,3,Canada vs Bosnia and Herzegovina,2,1,A,2026-06-11 19:05:36
+P-0332C,YB Fan,4,USA vs Paraguay,2,1,A,2026-06-11 19:06:19
+P-0332C,YB Fan,7,Brazil vs Morocco,4,2,A,2026-06-11 19:06:16
+P-0332C,YB Fan,2,Korea Republic vs Czechia,1,2,B,2026-06-11 19:05:16
+P-0332C,YB Fan,8,Qatar vs Switzerland,1,4,B,2026-06-11 19:05:59
+P-0332C,YB Fan,5,Haiti vs Scotland,0,3,B,2026-06-11 19:06:07
+P-0332C,YB Fan,6,Australia vs Türkiye,1,3,B,2026-06-11 19:06:25
+P-0333N,Bob,1,Mexico vs South Africa,2,1,A,2026-06-11 19:33:27
+P-0333N,Bob,2,Korea Republic vs Czechia,2,1,A,2026-06-11 19:33:40
+P-0333N,Bob,3,Canada vs Bosnia and Herzegovina,2,1,A,2026-06-11 19:33:48
+P-0333N,Bob,8,Qatar vs Switzerland,1,2,B,2026-06-11 19:34:08
+P-0333N,Bob,7,Brazil vs Morocco,3,0,A,2026-06-11 19:34:41
+P-0333N,Bob,5,Haiti vs Scotland,0,1,B,2026-06-11 19:34:58
+P-0333N,Bob,4,USA vs Paraguay,0,1,B,2026-06-11 19:35:12
+P-0333N,Bob,6,Australia vs Türkiye,2,1,A,2026-06-11 19:35:21
+P-0333N,Bob,10,Germany vs Curaçao,5,0,A,2026-06-11 19:35:32
+P-0333N,Bob,9,Côte d'Ivoire vs Ecuador,0,2,B,2026-06-11 19:36:01
+P-0115A,Walter Frosch,1,Mexico vs South Africa,2,1,A,2026-06-11 19:36:18
+P-0333N,Bob,11,Netherlands vs Japan,2,1,A,2026-06-11 19:36:23
+P-0115A,Walter Frosch,2,Korea Republic vs Czechia,1,1,Draw,2026-06-11 19:36:33
+P-0333N,Bob,12,Sweden vs Tunisia,2,1,A,2026-06-11 19:36:49
+P-B100M,Imani001,1,Mexico vs South Africa,3,1,A,2026-06-11 19:37:04
+P-0333N,Bob,16,Belgium vs Egypt,1,0,A,2026-06-11 19:37:06
+P-B100M,Imani001,2,Korea Republic vs Czechia,1,2,B,2026-06-11 19:37:21
+P-B100M,Imani001,3,Canada vs Bosnia and Herzegovina,0,0,Draw,2026-06-11 19:37:33
+P-B100M,Imani001,7,Brazil vs Morocco,2,2,Draw,2026-06-11 19:37:51
+P-B100M,Imani001,5,Haiti vs Scotland,1,4,B,2026-06-11 19:38:09
+P-B100M,Imani001,4,USA vs Paraguay,0,3,B,2026-06-11 19:38:24
+P-B100M,Imani001,6,Australia vs Türkiye,1,1,Draw,2026-06-11 19:38:34
+P-B100M,Imani001,10,Germany vs Curaçao,2,0,A,2026-06-11 19:38:44
+P-0333N,Bob,15,IR Iran vs New Zealand,0,1,B,2026-06-11 19:38:53
+P-B100M,Imani001,9,Côte d'Ivoire vs Ecuador,1,1,Draw,2026-06-11 19:38:53
+P-0333N,Bob,14,Spain vs Cabo Verde,3,0,A,2026-06-11 19:38:58
+P-0333N,Bob,13,Saudi Arabia vs Uruguay,1,0,A,2026-06-11 19:39:22
+P-B100M,Imani001,11,Netherlands vs Japan,3,0,A,2026-06-11 19:39:13
+P-0333N,Bob,17,France vs Senegal,2,0,A,2026-06-11 19:39:19
+P-B100M,Imani001,12,Sweden vs Tunisia,1,2,B,2026-06-11 19:39:26
+P-B100M,Imani001,16,Belgium vs Egypt,3,1,A,2026-06-11 19:39:34
+P-B100M,Imani001,15,IR Iran vs New Zealand,1,1,Draw,2026-06-11 19:39:50
+P-B100M,Imani001,14,Spain vs Cabo Verde,3,0,A,2026-06-11 19:40:04
+P-B100M,Imani001,13,Saudi Arabia vs Uruguay,0,4,B,2026-06-11 19:40:12
+P-B100M,Imani001,17,France vs Senegal,1,1,Draw,2026-06-11 19:40:19
+P-B100M,Imani001,18,Iraq vs Norway,0,5,B,2026-06-11 19:40:31
+P-B100M,Imani001,19,Argentina vs Algeria,2,1,A,2026-06-11 19:40:39
+P-B100M,Imani001,20,Austria vs Jordan,3,0,A,2026-06-11 19:40:48
+P-B100M,Imani001,23,Portugal vs Congo DR,1,1,Draw,2026-06-11 19:40:57
+P-B100M,Imani001,24,Uzbekistan vs Colombia,1,2,B,2026-06-11 19:41:13
+P-B100M,Imani001,22,England vs Croatia,2,2,Draw,2026-06-11 19:41:27
+P-B100M,Imani001,21,Ghana vs Panama,2,2,Draw,2026-06-11 19:41:36
+P-0333N,Bob,18,Iraq vs Norway,1,2,B,2026-06-11 19:41:41
+P-0333N,Bob,19,Argentina vs Algeria,3,0,A,2026-06-11 19:41:48
+P-0333N,Bob,20,Austria vs Jordan,1,0,A,2026-06-11 19:41:55
+P-0333N,Bob,23,Portugal vs Congo DR,2,0,A,2026-06-11 19:42:07
+P-B100M,Imani001,25,Czechia vs South Africa,1,2,B,2026-06-11 19:42:30
+P-0333N,Bob,24,Uzbekistan vs Colombia,0,3,B,2026-06-11 19:42:13
+P-0333N,Bob,22,England vs Croatia,2,0,A,2026-06-11 19:42:31
+P-0333N,Bob,21,Ghana vs Panama,1,0,A,2026-06-11 19:42:50
+P-B100M,Imani001,28,Mexico vs Korea Republic,3,0,A,2026-06-11 19:42:57
+P-B100M,Imani001,26,Switzerland vs Bosnia and Herzegovina,3,0,A,2026-06-11 19:43:11
+P-B100M,Imani001,27,Canada vs Qatar,2,1,A,2026-06-11 19:44:49
+P-B100M,Imani001,30,Scotland vs Morocco,1,1,Draw,2026-06-11 19:45:03
+P-B100M,Imani001,29,Brazil vs Haiti,5,0,A,2026-06-11 19:45:15
+P-B100M,Imani001,32,USA vs Australia,2,0,A,2026-06-11 19:45:25
+P-B100M,Imani001,31,Türkiye vs Paraguay,1,1,Draw,2026-06-11 19:45:37
+P-B100M,Imani001,33,Germany vs Côte d'Ivoire,3,1,A,2026-06-11 19:45:51
+P-B100M,Imani001,34,Ecuador vs Curaçao,2,2,Draw,2026-06-11 19:46:07
+P-B100M,Imani001,35,Netherlands vs Sweden,2,1,A,2026-06-11 19:46:17
+P-B100M,Imani001,36,Tunisia vs Japan,2,0,A,2026-06-11 19:46:27
+P-B100M,Imani001,39,Belgium vs IR Iran,4,0,A,2026-06-11 19:46:43
+P-B100M,Imani001,40,New Zealand vs Egypt,1,3,B,2026-06-11 19:46:52
+P-B100M,Imani001,38,Spain vs Saudi Arabia,4,0,A,2026-06-11 19:47:56
+P-B100M,Imani001,37,Uruguay vs Cabo Verde,3,0,A,2026-06-11 19:48:33
+P-B100M,Imani001,42,France vs Iraq,5,0,A,2026-06-11 19:48:42
+P-B100M,Imani001,41,Norway vs Senegal,1,2,B,2026-06-11 19:48:52
+P-B100M,Imani001,43,Argentina vs Austria,2,0,A,2026-06-11 19:49:09
+P-B100M,Imani001,44,Jordan vs Algeria,1,3,B,2026-06-11 19:49:27
+P-B100M,Imani001,47,Portugal vs Uzbekistan,2,0,A,2026-06-11 19:49:45
+P-B100M,Imani001,48,Colombia vs Congo DR,0,2,B,2026-06-11 19:50:11
+P-B100M,Imani001,45,England vs Ghana,2,0,A,2026-06-11 19:50:36
+P-B100M,Imani001,46,Panama vs Croatia,1,2,B,2026-06-11 19:50:50
+P-B100M,Imani001,53,Czechia vs Mexico,1,1,Draw,2026-06-11 19:51:49
+P-B100M,Imani001,54,South Africa vs Korea Republic,1,1,Draw,2026-06-11 19:53:40
+P-B100M,Imani001,51,Switzerland vs Canada,2,1,A,2026-06-11 19:53:49
+P-B100M,Imani001,52,Bosnia and Herzegovina vs Qatar,1,1,Draw,2026-06-11 19:54:01
+P-B100M,Imani001,49,Scotland vs Brazil,1,2,B,2026-06-11 19:54:10
+P-B100M,Imani001,50,Morocco vs Haiti,2,1,A,2026-06-11 19:54:28
+P-B100M,Imani001,59,Türkiye vs USA,1,2,B,2026-06-11 19:54:47
+P-B100M,Imani001,60,Paraguay vs Australia,2,1,A,2026-06-11 19:55:03
+P-B100M,Imani001,55,Curaçao vs Côte d'Ivoire,1,2,B,2026-06-11 19:55:18
+P-B100M,Imani001,56,Ecuador vs Germany,1,5,B,2026-06-11 19:55:30
+P-B100M,Imani001,57,Japan vs Sweden,1,2,B,2026-06-11 19:55:39
+P-B100M,Imani001,58,Tunisia vs Netherlands,0,2,B,2026-06-11 19:55:55
+P-B100M,Imani001,63,Egypt vs IR Iran,2,0,A,2026-06-11 19:56:03
+P-B100M,Imani001,64,New Zealand vs Belgium,1,2,B,2026-06-11 19:56:16
+P-B100M,Imani001,65,Cabo Verde vs Saudi Arabia,2,1,A,2026-06-11 19:56:27
+P-B100M,Imani001,66,Uruguay vs Spain,1,2,B,2026-06-11 19:56:36
+P-B100M,Imani001,61,Norway vs France,0,0,Draw,2026-06-11 19:56:48
+P-B100M,Imani001,62,Senegal vs Iraq,3,1,A,2026-06-11 19:56:58
+P-B100M,Imani001,69,Algeria vs Austria,1,1,Draw,2026-06-11 19:57:13
+P-B100M,Imani001,70,Jordan vs Argentina,1,3,B,2026-06-11 19:57:23
+P-B100M,Imani001,71,Colombia vs Portugal,1,2,B,2026-06-11 19:57:38
+P-B100M,Imani001,72,Congo DR vs Uzbekistan,4,0,A,2026-06-11 19:57:53
+P-B100M,Imani001,67,Panama vs England,1,3,B,2026-06-11 19:58:09
+P-B100M,Imani001,68,Croatia vs Ghana,1,2,B,2026-06-11 19:58:21
+P-0420Q,Jim Knopf,3,Canada vs Bosnia and Herzegovina,1,1,Draw,2026-06-11 20:44:42
+P-0420Q,Jim Knopf,7,Brazil vs Morocco,2,1,A,2026-06-11 20:44:52
+P-0420Q,Jim Knopf,4,USA vs Paraguay,1,1,Draw,2026-06-11 20:45:07
+P-0420Q,Jim Knopf,2,Korea Republic vs Czechia,2,1,A,2026-06-11 20:45:30
+P-0420Q,Jim Knopf,8,Qatar vs Switzerland,0,2,B,2026-06-11 20:45:43
+P-0420Q,Jim Knopf,5,Haiti vs Scotland,0,1,B,2026-06-11 20:45:57
+P-0420Q,Jim Knopf,6,Australia vs Türkiye,0,1,B,2026-06-11 20:46:08
+P-0420Q,Jim Knopf,10,Germany vs Curaçao,4,0,A,2026-06-11 20:46:27
+P-0420Q,Jim Knopf,11,Netherlands vs Japan,2,1,A,2026-06-11 20:46:37
+P-0420Q,Jim Knopf,16,Belgium vs Egypt,2,1,A,2026-06-11 20:46:46
+P-0420Q,Jim Knopf,14,Spain vs Cabo Verde,4,0,A,2026-06-11 20:46:58
+P-0420Q,Jim Knopf,9,Côte d'Ivoire vs Ecuador,1,2,B,2026-06-11 20:47:13
+P-0420Q,Jim Knopf,12,Sweden vs Tunisia,1,2,B,2026-06-11 20:47:21
+P-0420Q,Jim Knopf,15,IR Iran vs New Zealand,1,0,A,2026-06-11 20:47:33
+P-0420Q,Jim Knopf,13,Saudi Arabia vs Uruguay,0,2,B,2026-06-11 20:47:43
+P-0420Q,Jim Knopf,17,France vs Senegal,3,1,A,2026-06-11 20:48:02
+P-0420Q,Jim Knopf,19,Argentina vs Algeria,2,0,A,2026-06-11 20:48:12
+P-0420Q,Jim Knopf,22,England vs Croatia,2,1,A,2026-06-11 20:49:12
+P-0420Q,Jim Knopf,18,Iraq vs Norway,0,2,B,2026-06-11 20:50:47
+P-0420Q,Jim Knopf,20,Austria vs Jordan,2,1,A,2026-06-11 20:51:10
+P-0420Q,Jim Knopf,24,Uzbekistan vs Colombia,0,2,B,2026-06-11 20:51:18
+P-0420Q,Jim Knopf,21,Ghana vs Panama,2,1,A,2026-06-11 20:51:29
+P-0101T,Rio is the future,2,Korea Republic vs Czechia,1,3,B,2026-06-11 23:15:49

@@ -34,3 +34,10 @@ Once an ID is selected, its dissappeared from the login page.
 
 From here we are reverting back to users.csv as previous. Once an ID is selected and username picked, thats it
 append in hte users.csv file and use this to link with user predictions.
+
+
+#Further adjustements,
+We have to know which user is which,
+So revert back again to previous, ADMIN has to assign someone a login ID. This will enable us control
+logins. Once ID is assigned users enter there usernames to be displayed. This gets placed on the users.csv and further
+on the .toml secret file upon deployment. So we stick to this.
