@@ -858,7 +858,7 @@ st.divider()
 st.subheader("Leaderboard")
 leaderboard = build_leaderboard(predictions, matches)
 if leaderboard.empty:
-    st.info("No predictions recorded yet.")
+    st.info("There are no predictions recorded yet.")
 else:
     display_leaderboard(leaderboard, is_admin)
 
