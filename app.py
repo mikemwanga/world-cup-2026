@@ -545,7 +545,15 @@ def render_admin_panel(matches, predictions):
 
 
 def display_table(df):
-    st.dataframe(df, width="stretch", height="content", hide_index=True)
+    # Object columns that mix numbers with text (e.g. "Points" = 3 or "Pending")
+    # break Arrow serialization. Render those as strings so they display cleanly.
+    safe_df = df.copy()
+    for col in safe_df.columns:
+        if safe_df[col].dtype == "object":
+            safe_df[col] = safe_df[col].apply(
+                lambda v: "" if v is None or (isinstance(v, float) and pd.isna(v)) else str(v)
+            )
+    st.dataframe(safe_df, width="stretch", height="content", hide_index=True)
 
 
 def display_leaderboard(leaderboard, is_admin):
