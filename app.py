@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 
 from process_data import (
     ensure_data_files,
@@ -13,7 +12,7 @@ from process_data import (
     set_username,
     users_to_toml,
     backup_csv_contents,
-    save_scores,
+    set_match_score,
     build_leaderboard,
     build_admin_user_summary,
     build_admin_user_detail,
@@ -21,6 +20,8 @@ from process_data import (
     filter_actual_predictions,
     display_team_name,
     display_match_label,
+    current_local_time,
+    is_prediction_open,
 )
 from scoring_rules import SCORING_DESCRIPTION
 
@@ -242,7 +243,7 @@ def render_match_card(
     has_saved_pick = not user_preds.empty
     saved_a = int(user_preds["predicted_score_a"].iloc[0]) if has_saved_pick else None
     saved_b = int(user_preds["predicted_score_b"].iloc[0]) if has_saved_pick else None
-    deadline_passed = match["prediction_deadline"] < now
+    deadline_passed = not is_prediction_open(match, now)
     team_a = display_team_name(match["team_a"])
     team_b = display_team_name(match["team_b"])
 
@@ -355,9 +356,8 @@ def render_round_grid(
 
 
 def _admin_match_select_options(matches):
-    pending = matches[~matches["is_finished"]]
     rows = (
-        pending[["match_id", "match_label"]]
+        matches[["match_id", "match_label", "is_finished"]]
         .drop_duplicates(subset=["match_id"])
         .sort_values("match_id")
     )
@@ -365,7 +365,8 @@ def _admin_match_select_options(matches):
     match_id_by_label = {}
     for _, row in rows.iterrows():
         match_id = int(row["match_id"])
-        label = f"{match_id} — {display_match_label(row['match_label'])}"
+        marker = " ✓ scored" if bool(row["is_finished"]) else ""
+        label = f"{match_id} — {display_match_label(row['match_label'])}{marker}"
         labels.append(label)
         match_id_by_label[label] = match_id
     return labels, match_id_by_label
@@ -451,51 +452,57 @@ def render_admin_panel(matches, predictions):
     match_labels, match_id_by_label = _admin_match_select_options(matches)
 
     if not match_labels:
-        st.info("All matches have scores recorded. Nothing left to update.")
+        st.info("No matches available.")
     else:
+        st.caption(
+            "Select any match to enter or correct its score. Matches marked “✓ scored” "
+            "already have a result; editing overwrites it and recalculates points."
+        )
+        selected_label = st.selectbox("Match", match_labels, key="admin_match_id")
+        selected_match = match_id_by_label[selected_label]
+        match_row = matches[matches["match_id"] == selected_match].iloc[0]
+
+        already_scored = bool(match_row["is_finished"])
+        current_a = str(int(match_row["actual_score_a"])) if already_scored else ""
+        current_b = str(int(match_row["actual_score_b"])) if already_scored else ""
+        if already_scored:
+            st.info(
+                f"Current recorded score: **{current_a}–{current_b}**. "
+                "Enter new values below to correct it."
+            )
+
         with st.form(key="admin_score_update"):
-            update_cols = st.columns(4)
-            selected_label = update_cols[0].selectbox(
-                "Match", match_labels, key="admin_match_id"
+            update_cols = st.columns(3)
+            score_a_text = update_cols[0].text_input(
+                "Team A score",
+                value=current_a,
+                placeholder="0",
+                key=f"admin_score_a_{selected_match}",
             )
-            selected_match = match_id_by_label[selected_label]
-            score_a_text = update_cols[1].text_input(
-                "Team A score", value="0", key="admin_score_a"
+            score_b_text = update_cols[1].text_input(
+                "Team B score",
+                value=current_b,
+                placeholder="0",
+                key=f"admin_score_b_{selected_match}",
             )
-            score_b_text = update_cols[2].text_input(
-                "Team B score", value="0", key="admin_score_b"
-            )
-            submitted = update_cols[3].form_submit_button("Update score")
+            submit_label = "Update score" if already_scored else "Save score"
+            submitted = update_cols[2].form_submit_button(submit_label)
             if submitted:
                 try:
-                    new_score_a = _parse_score(score_a_text, "Team A")
-                    new_score_b = _parse_score(score_b_text, "Team B")
+                    new_score_a = _parse_score(score_a_text, "Team A", required=True)
+                    new_score_b = _parse_score(score_b_text, "Team B", required=True)
                 except ValueError as exc:
                     st.error(str(exc))
                 else:
-                    if scores.empty or "match_id" not in scores.columns:
-                        scores = pd.DataFrame(
-                            columns=["match_id", "match_label", "actual_score_a", "actual_score_b"]
-                        )
-                    match_row = matches[matches["match_id"] == selected_match].iloc[0]
-                    scores = pd.concat(
-                        [
-                            scores,
-                            pd.DataFrame(
-                                [
-                                    {
-                                        "match_id": selected_match,
-                                        "match_label": match_row["match_label"],
-                                        "actual_score_a": new_score_a,
-                                        "actual_score_b": new_score_b,
-                                    }
-                                ]
-                            ),
-                        ],
-                        ignore_index=True,
+                    set_match_score(
+                        selected_match,
+                        match_row["match_label"],
+                        new_score_a,
+                        new_score_b,
                     )
-                    save_scores(scores)
-                    st.success(f"Updated scores for match ID {selected_match}.")
+                    st.success(
+                        f"Saved score {new_score_a}–{new_score_b} for match ID {selected_match}."
+                    )
                     st.rerun()
 
     st.divider()
@@ -538,7 +545,15 @@ def render_admin_panel(matches, predictions):
 
 
 def display_table(df):
-    st.dataframe(df, width="stretch", height="content", hide_index=True)
+    # Object columns that mix numbers with text (e.g. "Points" = 3 or "Pending")
+    # break Arrow serialization. Render those as strings so they display cleanly.
+    safe_df = df.copy()
+    for col in safe_df.columns:
+        if safe_df[col].dtype == "object":
+            safe_df[col] = safe_df[col].apply(
+                lambda v: "" if v is None or (isinstance(v, float) and pd.isna(v)) else str(v)
+            )
+    st.dataframe(safe_df, width="stretch", height="content", hide_index=True)
 
 
 def display_leaderboard(leaderboard, is_admin):
@@ -709,8 +724,12 @@ if is_admin:
     st.markdown("---\n## Scoring Rules\n" + SCORING_DESCRIPTION)
     st.stop()
 
-now = datetime.now()
-upcoming = matches[~matches["is_finished"] & (matches["prediction_deadline"] >= now)].copy()
+now = current_local_time()
+upcoming = matches[
+    ~matches["is_finished"]
+    & (matches["prediction_deadline"] > now)
+    & (matches["match_date"] > now)
+].copy()
 upcoming = upcoming.sort_values(by=["round_number", "group", "match_date"])
 finished = matches[matches["is_finished"]].sort_values(by="match_date", ascending=False)
 
@@ -847,7 +866,7 @@ st.divider()
 st.subheader("Leaderboard")
 leaderboard = build_leaderboard(predictions, matches)
 if leaderboard.empty:
-    st.info("No predictions recorded yet.")
+    st.info("There are no predictions recorded yet.")
 else:
     display_leaderboard(leaderboard, is_admin)
 

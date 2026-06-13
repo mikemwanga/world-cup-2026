@@ -1,36 +1,5 @@
+Some things to implement
 
-#A review here to alter scoring matrix
-3 points (Exact prediction)
+From now henceforth know that we have the app deployed to streamlit and users are actively predicting. So any changes should not alter or erase current data. If there is any let me know and suggest altimate approaches.
 
-Award 3 points if:
-
-predicted home goals == actual home goals AND
-predicted away goals == actual away goals
-2 points (Correct winner + correct goal difference, but not exact score)
-
-Award 2 points if:
-
-predicted match outcome (win/draw/loss) matches actual outcome AND
-predicted goal difference equals actual goal difference AND
-score is NOT an exact match
-1 point (Correct winner only)
-
-Award 1 point if:
-
-predicted match outcome matches actual outcome AND
-goal difference is NOT equal OR score is not exact
-0 points (Incorrect outcome)
-
-Award 0 points if:
-
-predicted outcome (win/draw/loss) does not match actual outcome
-
-
-Review 2 on Loginin and assigning IDs
-Wrather than users to contact ADMIN, generate 15 random IDS and display them on the login page. Ask users to choose and ID 
-from the list and they will input their prefered username. Indicate that IDs are secret and unique. Also ensure 
-no similar usernames. Remember only username is displayed on the leaderboard. 
-Once an ID is selected, its dissappeared from the login page.
-
-From here we are reverting back to users.csv as previous. Once an ID is selected and username picked, thats it
-append in hte users.csv file and use this to link with user predictions.
+Adjust dealdine time from one hour to 10 minutes before game start

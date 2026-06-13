@@ -2,6 +2,11 @@ import random
 from pathlib import Path
 from datetime import datetime
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
+
 import pandas as pd
 
 from scoring_rules import (
@@ -22,6 +27,12 @@ PREDICTIONS_CSV = DATA_DIR / "predictions.csv"
 PREDICTIONS_XLSX = DATA_DIR / "predictions.xlsx"
 ADMIN_USER_ID = "ADMIN01"
 ADMIN_USERNAME = "Admin"
+
+# Match times in the schedule are naive Central European local times.
+# Compare them against "now" in the same zone so a UTC server clock
+# (e.g. Streamlit Cloud) does not drift the prediction window.
+APP_TIMEZONE = "Europe/Berlin"
+PREDICTION_DEADLINE_MINUTES = 10
 
 USER_COLUMNS = ["participant_id", "username", "first_signed_in_at"]
 ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -81,6 +92,27 @@ DEFAULT_USER_IDS = [f"P{i:03d}" for i in range(1, 11)]
 def display_team_name(name):
     cleaned = str(name).strip()
     return DISPLAY_TEAM_ALIASES.get(cleaned, cleaned)
+
+
+def current_local_time():
+    """Naive 'now' in the app's match timezone (Central European)."""
+    if ZoneInfo is not None:
+        try:
+            return datetime.now(ZoneInfo(APP_TIMEZONE)).replace(tzinfo=None)
+        except Exception:
+            pass
+    return datetime.now()
+
+
+def is_prediction_open(match, now=None):
+    """A match is open only before its deadline AND before kickoff."""
+    if now is None:
+        now = current_local_time()
+    deadline = match["prediction_deadline"]
+    kickoff = match["match_date"]
+    if pd.isna(deadline) or pd.isna(kickoff):
+        return False
+    return now < deadline and now < kickoff
 
 
 def display_match_label(label_or_team_a, team_b=None):
@@ -221,11 +253,11 @@ def _normalize_matches_df(df):
     else:
         raise ValueError("Match file must include a date column.")
 
-    if "prediction_deadline" not in df.columns:
-        df["prediction_deadline"] = df["match_date"] - pd.Timedelta(minutes=10)
-    else:
-        df["prediction_deadline"] = pd.to_datetime(df["prediction_deadline"], dayfirst=True, errors="coerce")
-        df["prediction_deadline"] = df["prediction_deadline"].fillna(df["match_date"] - pd.Timedelta(minutes=10))
+    # Always derive the deadline from kickoff so stale values baked into a
+    # schedule file cannot widen/shift the prediction window.
+    df["prediction_deadline"] = df["match_date"] - pd.Timedelta(
+        minutes=PREDICTION_DEADLINE_MINUTES
+    )
 
     # Preserve round labels (they may be numeric like 1,2,3 or text like 'Round of 32')
     if "round_number" not in df.columns:
@@ -506,6 +538,44 @@ def save_predictions(df):
 
 def save_scores(df):
     df.to_csv(SCORES_FILE, index=False)
+
+
+def set_match_score(match_id, match_label, score_a, score_b):
+    """Insert or overwrite the recorded score for a match. Returns updated scores df."""
+    match_id = int(match_id)
+    scores = load_scores()
+    if scores.empty or "match_id" not in scores.columns:
+        scores = pd.DataFrame(
+            columns=["match_id", "match_label", "actual_score_a", "actual_score_b"]
+        )
+
+    mask = scores["match_id"] == match_id
+    if mask.any():
+        scores.loc[mask, ["match_label", "actual_score_a", "actual_score_b"]] = [
+            match_label,
+            score_a,
+            score_b,
+        ]
+    else:
+        scores = pd.concat(
+            [
+                scores,
+                pd.DataFrame(
+                    [
+                        {
+                            "match_id": match_id,
+                            "match_label": match_label,
+                            "actual_score_a": score_a,
+                            "actual_score_b": score_b,
+                        }
+                    ]
+                ),
+            ],
+            ignore_index=True,
+        )
+
+    save_scores(scores)
+    return scores
 
 
 def backup_csv_contents():
